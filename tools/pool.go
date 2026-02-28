@@ -26,7 +26,7 @@ func registerPoolTools(s *mcp.Server, client *truenas.Client) {
 	})
 
 	type getPoolInput struct {
-		ID int `json:"id" jsonschema:"description=Numeric pool ID,required"`
+		ID int `json:"id" jsonschema:"Numeric pool ID"`
 	}
 
 	mcp.AddTool(s, &mcp.Tool{
