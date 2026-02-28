@@ -15,5 +15,6 @@ type Config struct {
 // RegisterAll wires all TrueNAS MCP tools onto the provided server.
 func RegisterAll(s *mcp.Server, client *truenas.Client, cfg Config) {
 	registerSystemTools(s, client)
+	registerPoolTools(s, client)
 	_ = cfg
 }

@@ -139,11 +139,11 @@ truenas_mcp/
 **Goal**: Read and create ZFS datasets — the core of the PBS provisioning workflow.
 
 **Tasks**:
-- [ ] `internal/truenas/pool.go` — list pools, get pool status
+- [x] `internal/truenas/pool.go` — list pools, get pool status
 - [ ] `internal/truenas/dataset.go` — list datasets, get dataset, create dataset, set dataset properties (quota, compression, etc.)
-- [ ] `tools/pool.go` — `list_pools`, `get_pool`
+- [x] `tools/pool.go` — `list_pools`, `get_pool`
 - [ ] `tools/dataset.go` — `list_datasets`, `get_dataset`, `create_dataset`
-- [ ] Update README
+- [x] Update README
 
 **Tools delivered** (~5):
 `list_pools`, `get_pool`, `list_datasets`, `get_dataset`, `create_dataset`
