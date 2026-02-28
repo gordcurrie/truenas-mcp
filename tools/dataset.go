@@ -14,7 +14,7 @@ func registerDatasetTools(s *mcp.Server, client *truenas.Client) {
 	type listDatasetsInput struct {
 		// Pool filters the results to datasets belonging to this pool name.
 		// Leave empty to return datasets from all pools.
-		Pool string `json:"pool" jsonschema:"Pool name to filter by; leave empty for all pools"`
+		Pool string `json:"pool,omitempty" jsonschema:"Pool name to filter by; leave empty for all pools"`
 	}
 
 	mcp.AddTool(s, &mcp.Tool{

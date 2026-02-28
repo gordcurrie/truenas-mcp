@@ -86,7 +86,7 @@ func (c *Client) GetDataset(ctx context.Context, id string) (*Dataset, error) {
 // returns the newly created Dataset. The caller must supply at least params.Name.
 func (c *Client) CreateDataset(ctx context.Context, params CreateDatasetParams) (*Dataset, error) {
 	if params.Name == "" {
-		return nil, fmt.Errorf("creating dataset: Name must not be empty")
+		return nil, fmt.Errorf("creating dataset: name must not be empty")
 	}
 
 	var dataset Dataset
