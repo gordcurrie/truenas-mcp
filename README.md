@@ -57,6 +57,13 @@ TRUENAS_INSECURE=true \
 |---|---|---|
 | `get_system_info` | Get TrueNAS SCALE system info: version, hostname, CPU, memory, uptime, load | _(none)_ |
 
+### Storage
+
+| Tool | Description | Parameters |
+|---|---|---|
+| `list_pools` | List all ZFS storage pools and their status, size, and health | _(none)_ |
+| `get_pool` | Get detailed information about a specific ZFS pool | `id` (int) |
+
 ## Development
 
 ```bash

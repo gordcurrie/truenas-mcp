@@ -1,0 +1,43 @@
+package tools
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/modelcontextprotocol/go-sdk/mcp"
+
+	"github.com/gordcurrie/truenas-mcp/internal/truenas"
+)
+
+// registerPoolTools registers all pool-related MCP tools onto the server.
+func registerPoolTools(s *mcp.Server, client *truenas.Client) {
+	type listPoolsInput struct{}
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "list_pools",
+		Description: "List all ZFS storage pools and their status, size, and health.",
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true},
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ listPoolsInput) (*mcp.CallToolResult, any, error) {
+		pools, err := client.ListPools(ctx)
+		if err != nil {
+			return nil, nil, fmt.Errorf("list_pools: %w", err)
+		}
+		return jsonResult(pools)
+	})
+
+	type getPoolInput struct {
+		ID int `json:"id" jsonschema:"Numeric pool ID"`
+	}
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "get_pool",
+		Description: "Get detailed information about a specific ZFS pool by ID.",
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true},
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, p getPoolInput) (*mcp.CallToolResult, any, error) {
+		pool, err := client.GetPool(ctx, p.ID)
+		if err != nil {
+			return nil, nil, fmt.Errorf("get_pool: %w", err)
+		}
+		return jsonResult(pool)
+	})
+}
