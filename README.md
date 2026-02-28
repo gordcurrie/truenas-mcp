@@ -67,6 +67,16 @@ TRUENAS_INSECURE=true \
 | `get_dataset` | Get detailed information about a specific ZFS dataset or zvol by its full path | `id` (string, e.g. `Storage/backups`) |
 | `create_dataset` | Create a new ZFS dataset or zvol | `name` (string, required); `type`, `compression`, `comments`, `quota` (optional) |
 
+### Virtual Machines
+
+| Tool | Description | Parameters |
+|---|---|---|
+| `list_vms` | List all VMs and their state (RUNNING/STOPPED), CPU, and memory | _(none)_ |
+| `get_vm` | Get detailed information about a specific VM | `id` (int) |
+| `start_vm` | Start a VM; returns async job ID immediately | `id` (int) |
+| `stop_vm` | Stop a VM; set `force=true` to forcibly terminate | `id` (int); `force` (bool, optional) |
+| `restart_vm` | Restart a VM; returns async job ID immediately | `id` (int) |
+
 ## Development
 
 ```bash
