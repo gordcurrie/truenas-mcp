@@ -35,6 +35,41 @@ type stopBody struct {
 	Force bool `json:"force"`
 }
 
+// CreateVMParams holds the fields for creating a new VM via POST /vm.
+// Name and Memory are required; all other fields use TrueNAS defaults when omitted.
+type CreateVMParams struct {
+	// Name is required.
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+	// VCPUs is the total virtual CPU count; defaults to 1 when omitted.
+	VCPUs int `json:"vcpus,omitempty"`
+	// Memory is required; specified in MiB.
+	Memory          int    `json:"memory"`
+	Bootloader      string `json:"bootloader,omitempty"`       // UEFI (default), UEFI_CSM, GRUB
+	Autostart       bool   `json:"autostart,omitempty"`        // start with system
+	Cores           int    `json:"cores,omitempty"`            // cores per socket
+	Threads         int    `json:"threads,omitempty"`          // threads per core
+	ShutdownTimeout int    `json:"shutdown_timeout,omitempty"` // seconds before force kill
+	CPUMode         string `json:"cpu_mode,omitempty"`         // CUSTOM, HOST-MODEL, HOST-PASSTHROUGH
+	CPUModel        string `json:"cpu_model,omitempty"`        // only used when CPUMode=CUSTOM
+}
+
+// UpdateVMParams holds the fields that can be updated on an existing VM via
+// PUT /vm/id/{id}. Only non-zero/non-empty fields are serialised and sent.
+// Use Autostart to explicitly control that flag (omitted = not changed).
+type UpdateVMParams struct {
+	Name            string `json:"name,omitempty"`
+	Description     string `json:"description,omitempty"`
+	VCPUs           int    `json:"vcpus,omitempty"`
+	Memory          int    `json:"memory,omitempty"` // MiB
+	Bootloader      string `json:"bootloader,omitempty"`
+	Cores           int    `json:"cores,omitempty"`
+	Threads         int    `json:"threads,omitempty"`
+	ShutdownTimeout int    `json:"shutdown_timeout,omitempty"`
+	CPUMode         string `json:"cpu_mode,omitempty"`
+	CPUModel        string `json:"cpu_model,omitempty"`
+}
+
 // ListVMs returns all virtual machines configured on the TrueNAS SCALE system.
 func (c *Client) ListVMs(ctx context.Context) ([]VM, error) {
 	var vms []VM
@@ -82,4 +117,40 @@ func (c *Client) RestartVM(ctx context.Context, id int) (int, error) {
 		return 0, fmt.Errorf("restarting VM %d: %w", id, err)
 	}
 	return jobID, nil
+}
+
+// CreateVM creates a new virtual machine and returns it.
+// params.Name and params.Memory are required.
+func (c *Client) CreateVM(ctx context.Context, params *CreateVMParams) (*VM, error) {
+	if params.Name == "" {
+		return nil, fmt.Errorf("creating VM: name must not be empty")
+	}
+	if params.Memory <= 0 {
+		return nil, fmt.Errorf("creating VM: memory must be greater than 0")
+	}
+
+	var vm VM
+	if err := c.postWithBody(ctx, "/vm", params, &vm); err != nil {
+		return nil, fmt.Errorf("creating VM %q: %w", params.Name, err)
+	}
+	return &vm, nil
+}
+
+// UpdateVM updates an existing VM by ID and returns the updated VM.
+// Only fields set in params are sent; omitted fields are unchanged.
+func (c *Client) UpdateVM(ctx context.Context, id int, params *UpdateVMParams) (*VM, error) {
+	var vm VM
+	if err := c.put(ctx, fmt.Sprintf("/vm/id/%d", id), params, &vm); err != nil {
+		return nil, fmt.Errorf("updating VM %d: %w", id, err)
+	}
+	return &vm, nil
+}
+
+// DeleteVM permanently deletes the VM with the given ID.
+// The VM must be stopped before deletion.
+func (c *Client) DeleteVM(ctx context.Context, id int) error {
+	if err := c.delete(ctx, fmt.Sprintf("/vm/id/%d", id), nil); err != nil {
+		return fmt.Errorf("deleting VM %d: %w", id, err)
+	}
+	return nil
 }

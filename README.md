@@ -76,6 +76,14 @@ TRUENAS_INSECURE=true \
 | `start_vm` | Start a VM; returns async job ID immediately | `id` (int) |
 | `stop_vm` | Stop a VM; set `force=true` to forcibly terminate | `id` (int); `force` (bool, optional) |
 | `restart_vm` | Restart a VM; returns async job ID immediately | `id` (int) |
+| `create_vm` | Create a new VM; returns the created VM | `name`, `memory` (required); `vcpus`, `bootloader`, `autostart`, `cores`, `threads`, `cpu_mode`, `cpu_model`, `shutdown_timeout`, `description` (optional) |
+| `update_vm` | Update an existing VM configuration; omitted fields are unchanged | `id` (required); any subset of `name`, `memory`, `vcpus`, `bootloader`, `cores`, `threads`, `cpu_mode`, `cpu_model`, `shutdown_timeout`, `description` |
+
+### Destructive (requires `TRUENAS_ALLOW_DESTRUCTIVE=true`)
+
+| Tool | Description | Parameters |
+|---|---|---|
+| `delete_vm` | Permanently delete a stopped VM | `id` (int); `confirmed: true` (required) |
 
 ## Development
 
