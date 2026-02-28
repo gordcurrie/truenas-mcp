@@ -155,10 +155,13 @@ truenas_mcp/
 **Goal**: Create, configure, start, stop, and delete VMs — needed for spinning up a PBS VM.
 
 **Tasks**:
-- [ ] `internal/truenas/vm.go` — list VMs, get VM, create VM, update VM, start/stop/restart/delete VM
-- [ ] `tools/vm.go` — read tools + lifecycle tools
+- [x] `internal/truenas/jobs.go` — async job type + PollJob helper
+- [x] `internal/truenas/vm.go` (3a) — list VMs, get VM, start/stop/restart VM
+- [ ] `internal/truenas/vm.go` (3b) — create VM, update VM
+- [x] `tools/vm.go` (3a) — `list_vms`, `get_vm`, `start_vm`, `stop_vm`, `restart_vm`
+- [ ] `tools/vm.go` (3b) — `create_vm`, `update_vm`
 - [ ] `tools/destructive.go` — opt-in `delete_vm`
-- [ ] Update README
+- [x] Update README (3a)
 
 **Tools delivered** (~8):
 `list_vms`, `get_vm`, `create_vm`, `update_vm`, `start_vm`, `stop_vm`, `restart_vm`, `delete_vm` (destructive)

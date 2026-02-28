@@ -17,5 +17,6 @@ func RegisterAll(s *mcp.Server, client *truenas.Client, cfg Config) {
 	registerSystemTools(s, client)
 	registerPoolTools(s, client)
 	registerDatasetTools(s, client)
+	registerVMTools(s, client)
 	_ = cfg
 }
