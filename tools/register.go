@@ -16,5 +16,6 @@ type Config struct {
 func RegisterAll(s *mcp.Server, client *truenas.Client, cfg Config) {
 	registerSystemTools(s, client)
 	registerPoolTools(s, client)
+	registerDatasetTools(s, client)
 	_ = cfg
 }
