@@ -140,9 +140,9 @@ truenas_mcp/
 
 **Tasks**:
 - [x] `internal/truenas/pool.go` — list pools, get pool status
-- [ ] `internal/truenas/dataset.go` — list datasets, get dataset, create dataset, set dataset properties (quota, compression, etc.)
+- [x] `internal/truenas/dataset.go` — list datasets, get dataset, create dataset, set dataset properties (quota, compression, etc.)
 - [x] `tools/pool.go` — `list_pools`, `get_pool`
-- [ ] `tools/dataset.go` — `list_datasets`, `get_dataset`, `create_dataset`
+- [x] `tools/dataset.go` — `list_datasets`, `get_dataset`, `create_dataset`
 - [x] Update README
 
 **Tools delivered** (~5):
