@@ -3,6 +3,7 @@ package truenas
 import (
 	"context"
 	"fmt"
+	"net/url"
 )
 
 // Container represents a TrueNAS SCALE app (Docker-based container).
@@ -31,7 +32,7 @@ func (c *Client) ListContainers(ctx context.Context) ([]Container, error) {
 // GetContainer returns a single app (container) by name.
 func (c *Client) GetContainer(ctx context.Context, name string) (*Container, error) {
 	var container Container
-	if err := c.get(ctx, fmt.Sprintf("/app/id/%s", name), &container); err != nil {
+	if err := c.get(ctx, "/app/id/"+url.PathEscape(name), &container); err != nil {
 		return nil, fmt.Errorf("getting container %q: %w", name, err)
 	}
 	return &container, nil
@@ -41,7 +42,7 @@ func (c *Client) GetContainer(ctx context.Context, name string) (*Container, err
 // The job can be polled for completion using PollJob.
 func (c *Client) StartContainer(ctx context.Context, name string) (int, error) {
 	var jobID int
-	if err := c.post(ctx, fmt.Sprintf("/app/id/%s/start", name), &jobID); err != nil {
+	if err := c.post(ctx, "/app/id/"+url.PathEscape(name)+"/start", &jobID); err != nil {
 		return 0, fmt.Errorf("starting container %q: %w", name, err)
 	}
 	return jobID, nil
@@ -51,7 +52,7 @@ func (c *Client) StartContainer(ctx context.Context, name string) (int, error) {
 // The job can be polled for completion using PollJob.
 func (c *Client) StopContainer(ctx context.Context, name string) (int, error) {
 	var jobID int
-	if err := c.post(ctx, fmt.Sprintf("/app/id/%s/stop", name), &jobID); err != nil {
+	if err := c.post(ctx, "/app/id/"+url.PathEscape(name)+"/stop", &jobID); err != nil {
 		return 0, fmt.Errorf("stopping container %q: %w", name, err)
 	}
 	return jobID, nil
@@ -61,7 +62,7 @@ func (c *Client) StopContainer(ctx context.Context, name string) (int, error) {
 // The job can be polled for completion using PollJob.
 func (c *Client) RestartContainer(ctx context.Context, name string) (int, error) {
 	var jobID int
-	if err := c.post(ctx, fmt.Sprintf("/app/id/%s/restart", name), &jobID); err != nil {
+	if err := c.post(ctx, "/app/id/"+url.PathEscape(name)+"/restart", &jobID); err != nil {
 		return 0, fmt.Errorf("restarting container %q: %w", name, err)
 	}
 	return jobID, nil
