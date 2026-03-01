@@ -414,7 +414,7 @@ func TestGetUpgradeSummary_success(t *testing.T) {
 	}
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost || r.URL.Path != "/app/id/my-app/upgrade_summary" {
+		if r.Method != http.MethodPost || r.URL.Path != "/app/upgrade_summary" {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
@@ -430,6 +430,9 @@ func TestGetUpgradeSummary_success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetUpgradeSummary: %v", err)
 	}
+	if !got.UpgradeAvailable {
+		t.Errorf("UpgradeAvailable = false, want true")
+	}
 	if got.LatestVersion != "2.0.0" {
 		t.Errorf("LatestVersion = %q, want %q", got.LatestVersion, "2.0.0")
 	}
@@ -438,6 +441,30 @@ func TestGetUpgradeSummary_success(t *testing.T) {
 	}
 	if len(got.AvailableVersionsForUpgrade) != 1 {
 		t.Errorf("AvailableVersionsForUpgrade len = %d, want 1", len(got.AvailableVersionsForUpgrade))
+	}
+}
+
+func TestGetUpgradeSummary_noUpgrade(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/app/upgrade_summary" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		_, _ = w.Write([]byte(`{"message":"No upgrade available for 'my-app'","errno":14}`))
+	}))
+	defer srv.Close()
+
+	c := newTestClient(t, srv.URL)
+	got, err := c.GetUpgradeSummary(context.Background(), "my-app")
+	if err != nil {
+		t.Fatalf("expected no error for 422 no-upgrade, got: %v", err)
+	}
+	if got.UpgradeAvailable {
+		t.Errorf("UpgradeAvailable = true, want false")
 	}
 }
 

@@ -2,6 +2,7 @@ package truenas
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/url"
 	"regexp"
@@ -56,8 +57,11 @@ type AppVersionInfo struct {
 	HumanVersion string `json:"human_version"`
 }
 
-// AppUpgradeSummary holds the result of app.upgrade_summary (AppUpgradeSummaryResult).
+// AppUpgradeSummary holds the result of app.upgrade_summary.
+// UpgradeAvailable is false when the app is already on the latest version
+// (the API returns a 422 in that case rather than a summary object).
 type AppUpgradeSummary struct {
+	UpgradeAvailable            bool             `json:"upgrade_available"`
 	LatestVersion               string           `json:"latest_version"`
 	LatestHumanVersion          string           `json:"latest_human_version"`
 	UpgradeVersion              string           `json:"upgrade_version"`
@@ -194,15 +198,27 @@ func (c *Client) UpgradeApp(ctx context.Context, name, version string) (int, err
 }
 
 // GetUpgradeSummary retrieves the upgrade summary for the named app.
-// It posts {app_version: "latest"} to /app/id/{name}/upgrade_summary as required by the API.
+// Uses POST /app/upgrade_summary with {"app_name": name}.
+// When the app is already up to date the API returns 422 — in that case
+// UpgradeAvailable is false and no error is returned.
 func (c *Client) GetUpgradeSummary(ctx context.Context, name string) (*AppUpgradeSummary, error) {
 	if err := validateAppName(name, "name"); err != nil {
 		return nil, err
 	}
+	body := struct {
+		AppName string `json:"app_name"`
+	}{AppName: name}
 	var summary AppUpgradeSummary
-	if err := c.postWithBody(ctx, "/app/id/"+url.PathEscape(name)+"/upgrade_summary", &AppUpgradeParams{AppVersion: "latest"}, &summary); err != nil {
+	err := c.postWithBody(ctx, "/app/upgrade_summary", body, &summary)
+	if err != nil {
+		var apiErr *APIError
+		if errors.As(err, &apiErr) && apiErr.StatusCode == 422 {
+			// 422 means no upgrade is available — this is a normal condition.
+			return &AppUpgradeSummary{UpgradeAvailable: false}, nil
+		}
 		return nil, fmt.Errorf("getting upgrade summary for app %q: %w", name, err)
 	}
+	summary.UpgradeAvailable = true
 	return &summary, nil
 }
 
