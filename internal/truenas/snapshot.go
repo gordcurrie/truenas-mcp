@@ -73,11 +73,8 @@ func (c *Client) ListSnapshots(ctx context.Context, dataset string) ([]Snapshot,
 
 // GetSnapshot returns a single snapshot by its full ID (e.g. "Storage/backups@before-upgrade").
 func (c *Client) GetSnapshot(ctx context.Context, id string) (*Snapshot, error) {
-	if id == "" {
-		return nil, fmt.Errorf("getting snapshot: id must not be empty")
-	}
-	if !strings.Contains(id, "@") {
-		return nil, fmt.Errorf("getting snapshot: id must be in dataset@name form, got %q", id)
+	if dataset, name, ok := strings.Cut(id, "@"); !ok || dataset == "" || name == "" || strings.Contains(name, "@") {
+		return nil, fmt.Errorf("getting snapshot: id must be in dataset@name form with non-empty dataset and name, got %q", id)
 	}
 
 	var snap Snapshot
@@ -108,16 +105,12 @@ func (c *Client) CreateSnapshot(ctx context.Context, params CreateSnapshotParams
 // id must be the full "dataset@name" identifier.
 // The API call is synchronous; an error is returned only if the request fails.
 func (c *Client) RollbackSnapshot(ctx context.Context, id string, params RollbackSnapshotParams) error {
-	if id == "" {
-		return fmt.Errorf("rolling back snapshot: id must not be empty")
-	}
-	if !strings.Contains(id, "@") {
-		return fmt.Errorf("rolling back snapshot: id must be in dataset@name form, got %q", id)
+	if dataset, name, ok := strings.Cut(id, "@"); !ok || dataset == "" || name == "" || strings.Contains(name, "@") {
+		return fmt.Errorf("rolling back snapshot: id must be in dataset@name form with non-empty dataset and name, got %q", id)
 	}
 
 	path := snapshotIDPath(id) + "/rollback"
-	var ignored any
-	if err := c.postWithBody(ctx, path, params, &ignored); err != nil {
+	if err := c.postWithBody(ctx, path, params, nil); err != nil {
 		return fmt.Errorf("rolling back snapshot %q: %w", id, err)
 	}
 	return nil
@@ -125,15 +118,11 @@ func (c *Client) RollbackSnapshot(ctx context.Context, id string, params Rollbac
 
 // DeleteSnapshot deletes the ZFS snapshot identified by id (e.g. "Storage/backups@before-upgrade").
 func (c *Client) DeleteSnapshot(ctx context.Context, id string) error {
-	if id == "" {
-		return fmt.Errorf("deleting snapshot: id must not be empty")
-	}
-	if !strings.Contains(id, "@") {
-		return fmt.Errorf("deleting snapshot: id must be in dataset@name form, got %q", id)
+	if dataset, name, ok := strings.Cut(id, "@"); !ok || dataset == "" || name == "" || strings.Contains(name, "@") {
+		return fmt.Errorf("deleting snapshot: id must be in dataset@name form with non-empty dataset and name, got %q", id)
 	}
 
-	var ignored any
-	if err := c.delete(ctx, snapshotIDPath(id), &ignored); err != nil {
+	if err := c.delete(ctx, snapshotIDPath(id), nil); err != nil {
 		return fmt.Errorf("deleting snapshot %q: %w", id, err)
 	}
 	return nil

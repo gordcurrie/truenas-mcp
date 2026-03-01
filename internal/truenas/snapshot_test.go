@@ -122,6 +122,9 @@ func TestGetSnapshot_validation(t *testing.T) {
 	}{
 		{"empty id", ""},
 		{"missing @", "Storage/backups"},
+		{"empty name", "Storage/backups@"},
+		{"empty dataset", "@before-upgrade"},
+		{"multiple @", "Storage@bad@name"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -232,6 +235,9 @@ func TestRollbackSnapshot_validation(t *testing.T) {
 	}{
 		{"empty id", ""},
 		{"missing @", "Storage/backups"},
+		{"empty name", "Storage/backups@"},
+		{"empty dataset", "@before-upgrade"},
+		{"multiple @", "Storage@bad@name"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -275,6 +281,9 @@ func TestDeleteSnapshot_validation(t *testing.T) {
 	}{
 		{"empty id", ""},
 		{"missing @", "Storage/backups"},
+		{"empty name", "Storage/backups@"},
+		{"empty dataset", "@before-upgrade"},
+		{"multiple @", "Storage@bad@name"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

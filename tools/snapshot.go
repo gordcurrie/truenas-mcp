@@ -88,6 +88,9 @@ func registerSnapshotTools(s *mcp.Server, client *truenas.Client) {
 		Description: "Roll a dataset back to a previous ZFS snapshot. Any changes made after the snapshot will be lost.",
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p rollbackSnapshotInput) (*mcp.CallToolResult, any, error) {
+		if p.RecursiveClones && !p.Recursive {
+			return nil, nil, fmt.Errorf("rollback_snapshot: recursive_clones requires recursive=true")
+		}
 		err := client.RollbackSnapshot(ctx, p.ID, truenas.RollbackSnapshotParams{
 			Recursive:       p.Recursive,
 			RecursiveClones: p.RecursiveClones,
