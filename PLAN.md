@@ -303,6 +303,85 @@ tooling — just download a binary and configure `mcp.json`.
 
 ---
 
+## Phase 9 — WebSocket API Migration (target: before v26.04)
+
+**Background**: TrueNAS 25.10 deprecated the REST API (`/api/v2.0`). It will be removed
+in v26.04 (estimated mid-2026). The replacement is JSON-RPC 2.0 over WebSocket at
+`wss://{host}/api/current`. Confirmed live on 2026-02-28 against TrueNAS 25.10.2.1.
+
+**Reference**: https://nas.1og.me/api/docs/current/jsonrpc.html
+
+### Impact
+
+Only `internal/truenas/client.go` needs a full rewrite. All other files
+(`container.go`, `vm.go`, `pool.go`, `dataset.go`, `system.go`, `jobs.go`) keep their
+method signatures and logic — only the underlying transport changes.
+
+Method names map 1-to-1 from REST path to JSON-RPC method, e.g.:
+- `GET /app` → `app.query`
+- `POST /app` → `app.create`
+- `POST /app/start` (body `"name"`) → `app.start` (params `["name"]`)
+- `DELETE /app/id/{name}` → `app.delete` (params `["name"]`)
+- `GET /pool/dataset` → `pool.dataset.query`
+- `POST /system/info` → `system.info`
+
+### Wire format
+
+Every call is a single WebSocket message:
+
+```json
+{"jsonrpc": "2.0", "id": 1, "method": "app.query", "params": []}
+```
+
+Response:
+
+```json
+{"jsonrpc": "2.0", "id": 1, "result": [...]}
+```
+
+Auth is done once after connect via:
+
+```json
+{"jsonrpc": "2.0", "id": 1, "method": "auth.login_with_api_key", "params": ["<api-key>"]}
+```
+
+### Design decisions
+
+| Decision | Choice | Rationale |
+|---|---|---|
+| WebSocket library | `nhooyr.io/websocket` | Context-aware, no gorilla dependency, actively maintained |
+| Multiplexing | `sync.Map` of pending `chan response` keyed by request ID | WebSocket is async; responses arrive out of order |
+| Request ID | Atomic `uint64` counter | Simple, unique, no coordination needed |
+| Connection lifecycle | Persistent single connection with reconnect | Avoids per-call handshake overhead |
+| Job polling | Unchanged — `core.get_jobs` still works, same int job ID | No change needed in `jobs.go` |
+| Insecure TLS | Same `TRUENAS_INSECURE=true` env var, passed to `nhooyr.io/websocket` dial options | Consistent with current behaviour |
+
+### Tasks
+
+- [ ] Add `nhooyr.io/websocket` dependency (`go get`, run `make vulncheck`)
+- [ ] Rewrite `internal/truenas/client.go`:
+  - `Dial(ctx, url, apiKey, insecure)` — connects WebSocket, authenticates, starts read loop
+  - `call(ctx, method string, params, result any) error` — marshals request, registers pending channel, waits for response
+  - read loop goroutine — decodes incoming messages, routes to pending channels
+  - graceful `Close()` method
+- [ ] Update `client_test.go` — replace `httptest.Server` with a local WebSocket test server
+- [ ] Audit each method in `container.go`, `vm.go`, `pool.go`, `dataset.go`, `system.go`:
+  - Replace `c.get(ctx, "/path", &result)` → `c.call(ctx, "service.method", params, &result)`
+  - Replace `c.post(ctx, "/path", &result)` → `c.call(ctx, "service.method", []any{...}, &result)`
+  - Etc. for `postWithBody`, `put`, `delete`
+- [ ] Update all `*_test.go` files to use WebSocket test server
+- [ ] `make check` passes
+- [ ] Smoke-test against live TrueNAS; confirm no deprecation warnings
+
+### Definition of Done
+
+- [ ] No more REST deprecation warnings from TrueNAS UI
+- [ ] All existing tools work identically from the MCP client's perspective
+- [ ] `make check` passes
+- [ ] Committed and pushed before TrueNAS 26.04 is released
+
+---
+
 ## Security Rules (same as proxmox-mcp)
 
 - No credentials in source — env vars only
