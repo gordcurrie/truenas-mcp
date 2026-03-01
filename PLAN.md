@@ -253,6 +253,40 @@ Document this workflow in README as a worked example.
 | 5 — Snapshots | 4 | 28 |
 | 6 — Apps | 6 | 34 |
 | 7 — PBS Workflow | 0 (validation) | 34 |
+| 8 — CI & Releases | 0 | 34 |
+
+---
+
+## Phase 8 — CI & Releases (both repos)
+
+Prerequisite: all feature phases merged and repos made public.
+
+### Goals
+
+Make both `truenas-mcp` and `proxmox-mcp` consumable by non-Go users with zero build
+tooling — just download a binary and configure `mcp.json`.
+
+### GitHub Actions Workflows (per repo)
+
+**`.github/workflows/ci.yml`** — runs on every push and PR to `main`:
+- `make check` (fix, fmt, vet, lint, sec, vulncheck, test -race, build)
+
+**`.github/workflows/release.yml`** — runs on `v*` tag push:
+- Cross-compile for: `linux/amd64`, `linux/arm64`, `darwin/amd64`, `darwin/arm64`, `windows/amd64`
+- Upload binaries to GitHub Release (created automatically by the workflow)
+- Binary naming convention: `<name>_<os>_<arch>[.exe]`
+
+### README Updates (per repo)
+
+- Add **Installation** section: download binary from Releases page
+- Add **VS Code `mcp.json`** usage snippet with env var instructions
+- Add **Building from source** section for Go users
+
+### Definition of Done
+
+- [ ] `ci.yml` passes on `main` for both repos
+- [ ] `release.yml` produces binaries on a `v*` tag for both repos
+- [ ] README installation section complete for both repos
 
 ---
 
