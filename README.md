@@ -74,17 +74,19 @@ Download the latest release for your platform from the [Releases](https://github
 | Platform | Binary |
 |---|---|
 | Linux (amd64) | `truenas-mcp_linux_amd64` |
-| Linux (ARM64) | `truenas-mcp_linux_arm64` |
-| macOS (Intel) | `truenas-mcp_darwin_amd64` |
-| macOS (Apple Silicon) | `truenas-mcp_darwin_arm64` |
-| Windows | `truenas-mcp_windows_amd64.exe` |
+| Linux (arm64) | `truenas-mcp_linux_arm64` |
+| macOS (amd64) | `truenas-mcp_darwin_amd64` |
+| macOS (arm64) | `truenas-mcp_darwin_arm64` |
+| Windows (amd64) | `truenas-mcp_windows_amd64.exe` |
 
-Make it executable and place it on your `PATH`:
+Make it executable and place it on your `PATH` (substitute the filename for your platform):
 
 ```bash
-chmod +x truenas-mcp_linux_amd64
-mv truenas-mcp_linux_amd64 /usr/local/bin/truenas-mcp
+chmod +x <binary-name>
+mv <binary-name> /usr/local/bin/truenas-mcp
 ```
+
+> Windows users: rename the `.exe` and add it to a directory on your `%PATH%`.
 
 ### Build from source
 
@@ -93,7 +95,9 @@ Requires Go 1.26+. You will also need a TrueNAS SCALE instance and an API key â€
 ```bash
 git clone https://github.com/gordcurrie/truenas-mcp
 cd truenas-mcp
-make build   # binary lands in bin/truenas-mcp
+cp .env.example .env   # copy the example env file
+$EDITOR .env           # set TRUENAS_* values (see table below)
+make build             # binary lands in bin/truenas-mcp
 ```
 
 ## Configuration
@@ -253,5 +257,5 @@ make install-tools   # install golangci-lint, gosec, govulncheck, gofumpt
 make check           # full quality gate: fix, fmt, vet, lint, sec, vulncheck, test, build
 make test            # tests only (with race detector)
 make build           # build only â†’ bin/truenas-mcp
-make clean           # remove bin/
+make clean           # remove bin/truenas-mcp
 ```
