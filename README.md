@@ -112,6 +112,69 @@ TRUENAS_INSECURE=true \
 | `delete_app` | Permanently delete a TrueNAS app | `name` (string); `confirmed: true` (required) |
 | `delete_snapshot` | Permanently delete a ZFS snapshot | `id` (string, e.g. `Storage/backups@before-upgrade`); `confirmed: true` (required) |
 
+## Worked Example — Proxmox Backup Server on TrueNAS
+
+This example shows how an AI agent can use `truenas-mcp` (plus the companion
+[proxmox-mcp](https://github.com/gordcurrie/proxmox-mcp)) to fully automate setting up
+[Proxmox Backup Server](https://www.proxmox.com/en/proxmox-backup-server) on TrueNAS, then
+register it with a Proxmox VE cluster and schedule nightly backups.
+
+### Step 1 — Create a ZFS dataset for backup storage (truenas-mcp)
+
+```
+create_dataset
+  name: "tank/proxmox-backups"
+  comments: "Proxmox Backup Server datastore"
+```
+
+### Step 2 — Create a VM to run PBS (truenas-mcp)
+
+```
+create_vm
+  name: "pbs"
+  memory: 4096
+  vcpus: 2
+  bootloader: "UEFI"
+  autostart: true
+  description: "Proxmox Backup Server"
+```
+
+### Step 3 — Start the VM (truenas-mcp)
+
+```
+start_vm
+  id: <vm_id returned by create_vm>
+```
+
+### Step 4 — Install PBS inside the VM _(manual)_
+
+Attach a Debian 12 ISO, install the OS, then follow the
+[PBS installation guide](https://pbs.proxmox.com/docs/installation.html) to install and
+configure PBS. Add the `tank/proxmox-backups` dataset as a PBS datastore via NFS or
+direct mount.
+
+### Step 5 — Register PBS with Proxmox VE _(proxmox-mcp — future tool)_
+
+```
+add_storage          # not yet implemented in proxmox-mcp
+  type: "pbs"
+  server: "<PBS VM IP>"
+  datastore: "proxmox-backups"
+```
+
+### Step 6 — Schedule nightly backups _(proxmox-mcp — future tool)_
+
+```
+create_backup_job    # not yet implemented in proxmox-mcp
+  storage: "pbs"
+  schedule: "daily"
+  all_vms: true
+```
+
+Steps 1–4 are fully automated today. Steps 5–6 require future proxmox-mcp tools.
+
+---
+
 ## Development
 
 ```bash
