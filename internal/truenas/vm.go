@@ -56,7 +56,6 @@ type CreateVMParams struct {
 
 // UpdateVMParams holds the fields that can be updated on an existing VM via
 // PUT /vm/id/{id}. Only non-zero/non-empty fields are serialised and sent.
-// Use Autostart to explicitly control that flag (omitted = not changed).
 type UpdateVMParams struct {
 	Name            string `json:"name,omitempty"`
 	Description     string `json:"description,omitempty"`
@@ -122,6 +121,9 @@ func (c *Client) RestartVM(ctx context.Context, id int) (int, error) {
 // CreateVM creates a new virtual machine and returns it.
 // params.Name and params.Memory are required.
 func (c *Client) CreateVM(ctx context.Context, params *CreateVMParams) (*VM, error) {
+	if params == nil {
+		return nil, fmt.Errorf("creating VM: params must not be nil")
+	}
 	if params.Name == "" {
 		return nil, fmt.Errorf("creating VM: name must not be empty")
 	}
@@ -139,6 +141,9 @@ func (c *Client) CreateVM(ctx context.Context, params *CreateVMParams) (*VM, err
 // UpdateVM updates an existing VM by ID and returns the updated VM.
 // Only fields set in params are sent; omitted fields are unchanged.
 func (c *Client) UpdateVM(ctx context.Context, id int, params *UpdateVMParams) (*VM, error) {
+	if params == nil {
+		return nil, fmt.Errorf("updating VM %d: params must not be nil", id)
+	}
 	var vm VM
 	if err := c.put(ctx, fmt.Sprintf("/vm/id/%d", id), params, &vm); err != nil {
 		return nil, fmt.Errorf("updating VM %d: %w", id, err)

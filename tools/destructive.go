@@ -10,12 +10,10 @@ import (
 	"github.com/gordcurrie/truenas-mcp/internal/truenas"
 )
 
-// destructiveHint is the *bool value used to advertise DestructiveHint on tools.
-var destructiveHint = true
-
 // registerDestructiveTools adds opt-in destructive tools to the server.
 // These tools are only registered when TRUENAS_ALLOW_DESTRUCTIVE=true.
 func registerDestructiveTools(s *mcp.Server, client *truenas.Client) {
+	destructiveHint := true
 	type deleteVMInput struct {
 		ID        int  `json:"id"        jsonschema:"required,Numeric VM ID"`
 		Confirmed bool `json:"confirmed" jsonschema:"required,Must be set to true to confirm deletion"`
