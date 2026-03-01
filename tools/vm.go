@@ -164,4 +164,59 @@ func registerVMTools(s *mcp.Server, client *truenas.Client) {
 		}
 		return jsonResult(vm)
 	})
+
+	type listVMDevicesInput struct {
+		ID int `json:"id" jsonschema:"required,Numeric VM ID"`
+	}
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "list_vm_devices",
+		Description: "List all hardware devices attached to a VM (disks, CDROMs, NICs, displays). Returns each device's ID, type, and attributes.",
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true},
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, p listVMDevicesInput) (*mcp.CallToolResult, any, error) {
+		devices, err := client.ListVMDevices(ctx, p.ID)
+		if err != nil {
+			return nil, nil, fmt.Errorf("list_vm_devices: %w", err)
+		}
+		return jsonResult(devices)
+	})
+
+	type addVMDeviceInput struct {
+		VMID       int            `json:"vm_id"    jsonschema:"required,Numeric VM ID to attach the device to"`
+		DType      string         `json:"dtype"    jsonschema:"required,Device type: DISK | CDROM | NIC | DISPLAY. DISK attrs: {path:'zvol/pool/dataset' type:'VIRTIO'}. CDROM attrs: {path:'/mnt/Storage/isos/file.iso'}. NIC attrs: {type:'VIRTIO' nic_attach:'br0'}. DISPLAY attrs: {web:true port:5900}"`
+		Attributes map[string]any `json:"attributes" jsonschema:"required,Device-type-specific key-value pairs. See dtype description for examples."`
+		Order      *int           `json:"order,omitempty" jsonschema:"Optional boot/device order index"`
+	}
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "add_vm_device",
+		Description: "Attach a hardware device to a VM. Supports DISK (zvol-backed), CDROM (ISO file), NIC (virtio/e1000), and DISPLAY (VNC). The VM does not need to be stopped to add devices, but changes take effect on next boot.",
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false},
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, p addVMDeviceInput) (*mcp.CallToolResult, any, error) {
+		device, err := client.AddVMDevice(ctx, &truenas.AddVMDeviceParams{
+			VMID:       p.VMID,
+			DType:      truenas.VMDeviceType(p.DType),
+			Attributes: p.Attributes,
+			Order:      p.Order,
+		})
+		if err != nil {
+			return nil, nil, fmt.Errorf("add_vm_device: %w", err)
+		}
+		return jsonResult(device)
+	})
+
+	type deleteVMDeviceInput struct {
+		ID int `json:"id" jsonschema:"required,Numeric device ID (from list_vm_devices)"`
+	}
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "delete_vm_device",
+		Description: "Remove a hardware device from a VM by its device ID. Use list_vm_devices to find device IDs. Changes take effect on next boot.",
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false},
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, p deleteVMDeviceInput) (*mcp.CallToolResult, any, error) {
+		if err := client.DeleteVMDevice(ctx, p.ID); err != nil {
+			return nil, nil, fmt.Errorf("delete_vm_device: %w", err)
+		}
+		return jsonResult(map[string]any{"deleted": true, "device_id": p.ID})
+	})
 }

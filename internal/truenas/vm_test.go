@@ -337,3 +337,161 @@ func TestDeleteVM_notFound(t *testing.T) {
 		t.Errorf("expected ErrNotFound, got %v", err)
 	}
 }
+
+func TestListVMDevices_success(t *testing.T) {
+	t.Parallel()
+
+	all := []VMDevice{
+		{ID: 1, VMID: 2, DType: VMDeviceTypeDISK, Attributes: map[string]any{"path": "zvol/Storage/pbs/disk0", "type": "VIRTIO"}},
+		{ID: 2, VMID: 2, DType: VMDeviceTypeNIC, Attributes: map[string]any{"type": "VIRTIO", "nic_attach": "br0"}},
+		{ID: 3, VMID: 9, DType: VMDeviceTypeCDROM, Attributes: map[string]any{"path": "/mnt/Storage/isos/other.iso"}},
+	}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/vm/device" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(all); err != nil {
+			t.Errorf("encoding response: %v", err)
+		}
+	}))
+	defer srv.Close()
+
+	c := newTestClient(t, srv.URL)
+	got, err := c.ListVMDevices(context.Background(), 2)
+	if err != nil {
+		t.Fatalf("ListVMDevices: %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("expected 2 devices for VM 2, got %d", len(got))
+	}
+	for _, d := range got {
+		if d.VMID != 2 {
+			t.Errorf("unexpected VMID %d in results", d.VMID)
+		}
+	}
+}
+
+func TestListVMDevices_empty(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/vm/device" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode([]VMDevice{}); err != nil {
+			t.Errorf("encoding response: %v", err)
+		}
+	}))
+	defer srv.Close()
+
+	c := newTestClient(t, srv.URL)
+	got, err := c.ListVMDevices(context.Background(), 42)
+	if err != nil {
+		t.Fatalf("ListVMDevices: %v", err)
+	}
+	if len(got) != 0 {
+		t.Errorf("expected 0 devices, got %d", len(got))
+	}
+}
+
+func TestAddVMDevice_success(t *testing.T) {
+	t.Parallel()
+
+	want := VMDevice{
+		ID:         5,
+		VMID:       2,
+		DType:      VMDeviceTypeCDROM,
+		Attributes: map[string]any{"path": "/mnt/Storage/isos/pbs.iso"},
+	}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/vm/device" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(want); err != nil {
+			t.Errorf("encoding response: %v", err)
+		}
+	}))
+	defer srv.Close()
+
+	c := newTestClient(t, srv.URL)
+	got, err := c.AddVMDevice(context.Background(), &AddVMDeviceParams{
+		VMID:       2,
+		DType:      VMDeviceTypeCDROM,
+		Attributes: map[string]any{"path": "/mnt/Storage/isos/pbs.iso"},
+	})
+	if err != nil {
+		t.Fatalf("AddVMDevice: %v", err)
+	}
+	if got.ID != want.ID {
+		t.Errorf("ID = %d, want %d", got.ID, want.ID)
+	}
+	if got.DType != want.DType {
+		t.Errorf("DType = %q, want %q", got.DType, want.DType)
+	}
+}
+
+func TestAddVMDevice_validation(t *testing.T) {
+	t.Parallel()
+
+	c := newTestClient(t, "http://localhost:9")
+
+	tests := []struct {
+		name   string
+		params *AddVMDeviceParams
+	}{
+		{"nil params", nil},
+		{"zero vmid", &AddVMDeviceParams{VMID: 0, DType: VMDeviceTypeDISK, Attributes: map[string]any{"path": "zvol/x"}}},
+		{"empty dtype", &AddVMDeviceParams{VMID: 1, DType: "", Attributes: map[string]any{"path": "zvol/x"}}},
+		{"empty attributes", &AddVMDeviceParams{VMID: 1, DType: VMDeviceTypeDISK, Attributes: map[string]any{}}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			_, err := c.AddVMDevice(context.Background(), tt.params)
+			if err == nil {
+				t.Errorf("expected error for %s, got nil", tt.name)
+			}
+		})
+	}
+}
+
+func TestDeleteVMDevice_success(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodDelete || r.URL.Path != "/vm/device/id/5" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	c := newTestClient(t, srv.URL)
+	if err := c.DeleteVMDevice(context.Background(), 5); err != nil {
+		t.Fatalf("DeleteVMDevice: %v", err)
+	}
+}
+
+func TestDeleteVMDevice_notFound(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer srv.Close()
+
+	c := newTestClient(t, srv.URL)
+	err := c.DeleteVMDevice(context.Background(), 99)
+	if !errors.Is(err, ErrNotFound) {
+		t.Errorf("expected ErrNotFound, got %v", err)
+	}
+}

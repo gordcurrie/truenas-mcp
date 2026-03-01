@@ -167,8 +167,104 @@ func (c *Client) UpdateVM(ctx context.Context, id int, params *UpdateVMParams) (
 // DeleteVM permanently deletes the VM with the given ID.
 // The VM must be stopped before deletion.
 func (c *Client) DeleteVM(ctx context.Context, id int) error {
-	if err := c.delete(ctx, fmt.Sprintf("/vm/id/%d", id), nil); err != nil {
+	if err := c.delete(ctx, fmt.Sprintf("/vm/id/%d", id)); err != nil {
 		return fmt.Errorf("deleting VM %d: %w", id, err)
+	}
+	return nil
+}
+
+// VMDeviceType identifies the kind of hardware device attached to a VM.
+type VMDeviceType string
+
+const (
+	// VMDeviceTypeDISK is a virtual disk backed by a ZFS zvol.
+	VMDeviceTypeDISK VMDeviceType = "DISK"
+	// VMDeviceTypeCDROM is a virtual optical drive backed by an ISO file on disk.
+	VMDeviceTypeCDROM VMDeviceType = "CDROM"
+	// VMDeviceTypeNIC is a virtual network interface card.
+	VMDeviceTypeNIC VMDeviceType = "NIC"
+	// VMDeviceTypeDISPLAY is a virtual display adapter (VNC/SPICE).
+	VMDeviceTypeDISPLAY VMDeviceType = "DISPLAY"
+	// VMDeviceTypeRAW is a raw block device passthrough.
+	VMDeviceTypeRAW VMDeviceType = "RAW"
+)
+
+// VMDevice represents a hardware device attached to a TrueNAS SCALE VM.
+//
+// Attributes are device-type-specific:
+//
+//	DISK:    {"path": "zvol/pool/dataset", "type": "VIRTIO"}
+//	CDROM:   {"path": "/mnt/Storage/isos/debian.iso"}
+//	NIC:     {"type": "VIRTIO", "nic_attach": "br0"}
+//	DISPLAY: {"web": true, "port": 5900, "web_port": 5901}
+type VMDevice struct {
+	ID         int            `json:"id"`
+	VMID       int            `json:"vm"`
+	DType      VMDeviceType   `json:"dtype"`
+	Attributes map[string]any `json:"attributes"`
+	Order      *int           `json:"order"`
+}
+
+// AddVMDeviceParams holds the parameters for attaching a new device to a VM.
+// VMID, DType, and Attributes are required.
+//
+// Attributes by device type:
+//
+//	DISK:    {"path": "zvol/pool/dataset", "type": "VIRTIO"}
+//	CDROM:   {"path": "/mnt/Storage/isos/pbs.iso"}
+//	NIC:     {"type": "VIRTIO", "nic_attach": "br0"}
+//	DISPLAY: {"web": true, "port": 5900}
+type AddVMDeviceParams struct {
+	VMID       int            `json:"vm"`
+	DType      VMDeviceType   `json:"dtype"`
+	Attributes map[string]any `json:"attributes"`
+	Order      *int           `json:"order,omitempty"`
+}
+
+// ListVMDevices returns all devices attached to the VM with the given ID.
+// It fetches all devices from the API and filters them by VM ID client-side.
+func (c *Client) ListVMDevices(ctx context.Context, vmID int) ([]VMDevice, error) {
+	var all []VMDevice
+	if err := c.get(ctx, "/vm/device", &all); err != nil {
+		return nil, fmt.Errorf("listing VM devices: %w", err)
+	}
+
+	var devices []VMDevice
+	for _, d := range all {
+		if d.VMID == vmID {
+			devices = append(devices, d)
+		}
+	}
+	return devices, nil
+}
+
+// AddVMDevice attaches a new device to a VM and returns the created VMDevice.
+// params.VMID, params.DType, and params.Attributes are required.
+func (c *Client) AddVMDevice(ctx context.Context, params *AddVMDeviceParams) (*VMDevice, error) {
+	if params == nil {
+		return nil, fmt.Errorf("adding VM device: params must not be nil")
+	}
+	if params.VMID <= 0 {
+		return nil, fmt.Errorf("adding VM device: vm_id must be a positive integer")
+	}
+	if params.DType == "" {
+		return nil, fmt.Errorf("adding VM device: dtype must not be empty")
+	}
+	if len(params.Attributes) == 0 {
+		return nil, fmt.Errorf("adding VM device: attributes must not be empty")
+	}
+
+	var device VMDevice
+	if err := c.postWithBody(ctx, "/vm/device", params, &device); err != nil {
+		return nil, fmt.Errorf("adding %s device to VM %d: %w", params.DType, params.VMID, err)
+	}
+	return &device, nil
+}
+
+// DeleteVMDevice removes the device with the given ID from its VM.
+func (c *Client) DeleteVMDevice(ctx context.Context, deviceID int) error {
+	if err := c.delete(ctx, fmt.Sprintf("/vm/device/id/%d", deviceID)); err != nil {
+		return fmt.Errorf("deleting VM device %d: %w", deviceID, err)
 	}
 	return nil
 }
