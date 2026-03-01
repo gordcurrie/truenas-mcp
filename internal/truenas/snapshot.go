@@ -23,7 +23,7 @@ type Snapshot struct {
 }
 
 // CreateSnapshotParams holds the fields for creating a ZFS snapshot via
-// POST /zfs/snapshot.
+// POST /pool/snapshot.
 type CreateSnapshotParams struct {
 	// Dataset is the full dataset path, e.g. "Storage/backups". Required.
 	Dataset string `json:"dataset"`
