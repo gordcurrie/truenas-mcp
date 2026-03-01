@@ -79,18 +79,21 @@ TRUENAS_INSECURE=true \
 | `create_vm` | Create a new VM; returns the created VM | `name`, `memory` (required); `vcpus`, `bootloader`, `autostart`, `cores`, `threads`, `cpu_mode`, `cpu_model`, `shutdown_timeout`, `description` (optional) |
 | `update_vm` | Update an existing VM configuration; omitted fields are unchanged | `id` (required); any subset of `name`, `memory`, `vcpus`, `bootloader`, `cores`, `threads`, `cpu_mode`, `cpu_model`, `shutdown_timeout`, `description` |
 
-### Docker Containers
+### Apps
 
 | Tool | Description | Parameters |
 |---|---|---|
-| `list_containers` | List all Docker containers managed by TrueNAS SCALE | _(none)_ |
-| `get_container` | Get detailed information about a specific container by its app name | `name` (string) |
-| `start_container` | Start a container; returns async job ID immediately | `name` (string) |
-| `stop_container` | Stop a running container; returns async job ID immediately | `name` (string) |
-| `restart_container` | Restart a container; returns async job ID immediately | `name` (string) |
+| `list_apps` | List all apps managed by TrueNAS SCALE | _(none)_ |
+| `get_app` | Get detailed information about a specific app by its app name | `name` (string) |
+| `start_app` | Start an app; returns async job ID immediately | `name` (string) |
+| `stop_app` | Stop a running app; returns async job ID immediately | `name` (string) |
+| `restart_app` | Restart an app; returns async job ID immediately | `name` (string) |
 | `list_images` | List all Docker images stored on the TrueNAS SCALE system | _(none)_ |
-| `create_container` | Install a catalog app from the TrueNAS app catalog; returns async job ID | `app_name` (string); `catalog_app` (string); `train` (string, default: stable); `version` (string, default: latest) |
-| `create_custom_container` | Install a custom Docker Compose app; returns async job ID | `app_name` (string); `custom_compose_config_string` (string, YAML) |
+| `install_app` | Install a catalog app from the TrueNAS app catalog; returns async job ID | `app_name` (string); `catalog_app` (string); `train` (string, default: stable); `version` (string, default: latest) |
+| `install_custom_app` | Install a custom Docker Compose app; returns async job ID | `app_name` (string); `custom_compose_config_string` (string, YAML) |
+| `upgrade_app` | Upgrade an app to a newer version; returns async job ID immediately | `name` (string); `version` (string, optional — omit for latest) |
+| `upgrade_summary` | Get upgrade availability and changelog for an app | `name` (string) |
+| `rollback_app` | Roll an app back to a previous version; returns async job ID immediately | `name` (string); `version` (string, required) |
 
 ### ZFS Snapshots
 
@@ -106,7 +109,7 @@ TRUENAS_INSECURE=true \
 | Tool | Description | Parameters |
 |---|---|---|
 | `delete_vm` | Permanently delete a stopped VM | `id` (int); `confirmed: true` (required) |
-| `delete_container` | Permanently delete a stopped TrueNAS app (container) | `name` (string); `confirmed: true` (required) |
+| `delete_app` | Permanently delete a TrueNAS app | `name` (string); `confirmed: true` (required) |
 | `delete_snapshot` | Permanently delete a ZFS snapshot | `id` (string, e.g. `Storage/backups@before-upgrade`); `confirmed: true` (required) |
 
 ## Development
