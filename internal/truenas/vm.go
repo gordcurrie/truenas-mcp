@@ -3,7 +3,11 @@ package truenas
 import (
 	"context"
 	"fmt"
+	"regexp"
 )
+
+// vmNameRe matches valid TrueNAS VM names: alphanumeric characters only.
+var vmNameRe = regexp.MustCompile(`^[a-zA-Z0-9]+$`)
 
 // VMStatus holds the runtime state of a VM as reported by TrueNAS SCALE.
 type VMStatus struct {
@@ -126,6 +130,9 @@ func (c *Client) CreateVM(ctx context.Context, params *CreateVMParams) (*VM, err
 	}
 	if params.Name == "" {
 		return nil, fmt.Errorf("creating VM: name must not be empty")
+	}
+	if !vmNameRe.MatchString(params.Name) {
+		return nil, fmt.Errorf("creating VM: name must contain only alphanumeric characters")
 	}
 	if params.Memory <= 0 {
 		return nil, fmt.Errorf("creating VM: memory must be greater than 0")

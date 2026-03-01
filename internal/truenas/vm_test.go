@@ -230,6 +230,7 @@ func TestCreateVM_validationErrors(t *testing.T) {
 	}{
 		{"empty name", CreateVMParams{Memory: 4096}},
 		{"zero memory", CreateVMParams{Name: "pbs"}},
+		{"invalid name with hyphen", CreateVMParams{Name: "test-vm", Memory: 4096}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
