@@ -57,4 +57,26 @@ func registerDestructiveTools(s *mcp.Server, client *truenas.Client) {
 		}
 		return jsonResult(map[string]any{"deleted": true, "name": p.Name})
 	})
+
+	type deleteSnapshotInput struct {
+		ID        string `json:"id"        jsonschema:"required,Full snapshot ID in dataset@name form, e.g. Storage/backups@before-upgrade"`
+		Confirmed bool   `json:"confirmed" jsonschema:"required,Must be set to true to confirm deletion"`
+	}
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "delete_snapshot",
+		Description: "Permanently delete a ZFS snapshot. Set confirmed=true to proceed.",
+		Annotations: &mcp.ToolAnnotations{
+			ReadOnlyHint:    false,
+			DestructiveHint: &destructiveHint,
+		},
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, p deleteSnapshotInput) (*mcp.CallToolResult, any, error) {
+		if !p.Confirmed {
+			return nil, nil, errors.New("delete_snapshot: confirmed must be true to proceed with deletion")
+		}
+		if err := client.DeleteSnapshot(ctx, p.ID); err != nil {
+			return nil, nil, fmt.Errorf("delete_snapshot: %w", err)
+		}
+		return jsonResult(map[string]any{"deleted": true, "id": p.ID})
+	})
 }

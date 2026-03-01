@@ -206,18 +206,19 @@ config (`custom_compose_config_string`).
 
 ---
 
-### Phase 5 — ZFS Snapshots
+### Phase 5 — ZFS Snapshots (✅ PR #7)
 
 **Goal**: Create, list, roll back, and delete snapshots — useful for pre-backup snapshotting.
 
 **Tasks**:
-- [ ] `internal/truenas/snapshot.go` — list, create, rollback, delete
-- [ ] `tools/snapshot.go` — `list_snapshots`, `create_snapshot`, `rollback_snapshot`
-- [ ] `tools/destructive.go` — opt-in `delete_snapshot`
-- [ ] Update README
+- [x] `internal/truenas/snapshot.go` — list, create, rollback, delete
+- [x] `internal/truenas/snapshot_test.go`
+- [x] `tools/snapshot.go` — `list_snapshots`, `get_snapshot`, `create_snapshot`, `rollback_snapshot`
+- [x] `tools/destructive.go` — opt-in `delete_snapshot`
+- [x] Update README
 
-**Tools delivered** (~4):
-`list_snapshots`, `create_snapshot`, `rollback_snapshot`, `delete_snapshot` (destructive)
+**Tools delivered (5)**:
+`list_snapshots`, `get_snapshot`, `create_snapshot`, `rollback_snapshot`, `delete_snapshot` (destructive)
 
 ---
 
@@ -263,7 +264,7 @@ Document this workflow in README as a worked example.
 | 2 — Pools & Datasets | 5 | 7 |
 | 3 — VMs | 8 | 15 |
 | 4 — Docker Containers | 9 | 24 |
-| 5 — Snapshots | 4 | 28 |
+| 5 — Snapshots | 5 | 29 |
 | 6 — Apps | 6 | 34 |
 | 7 — PBS Workflow | 0 (validation) | 34 |
 | 8 — CI & Releases | 0 | 34 |

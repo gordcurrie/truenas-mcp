@@ -92,12 +92,22 @@ TRUENAS_INSECURE=true \
 | `create_container` | Install a catalog app from the TrueNAS app catalog; returns async job ID | `app_name` (string); `catalog_app` (string); `train` (string, default: stable); `version` (string, default: latest) |
 | `create_custom_container` | Install a custom Docker Compose app; returns async job ID | `app_name` (string); `custom_compose_config_string` (string, YAML) |
 
+### ZFS Snapshots
+
+| Tool | Description | Parameters |
+|---|---|---|
+| `list_snapshots` | List ZFS snapshots, optionally filtered by dataset path | `dataset` (string, optional) |
+| `get_snapshot` | Get detailed information about a specific snapshot | `id` (string, e.g. `Storage/backups@before-upgrade`) |
+| `create_snapshot` | Create a new ZFS snapshot of a dataset | `dataset`, `name` (required); `recursive` (bool, optional) |
+| `rollback_snapshot` | Roll a dataset back to a previous snapshot (destructive — post-snapshot changes are lost) | `id` (required); `recursive`, `recursive_clones`, `force` (optional) |
+
 ### Destructive (requires `TRUENAS_ALLOW_DESTRUCTIVE=true`)
 
 | Tool | Description | Parameters |
 |---|---|---|
 | `delete_vm` | Permanently delete a stopped VM | `id` (int); `confirmed: true` (required) |
 | `delete_container` | Permanently delete a stopped TrueNAS app (container) | `name` (string); `confirmed: true` (required) |
+| `delete_snapshot` | Permanently delete a ZFS snapshot | `id` (string, e.g. `Storage/backups@before-upgrade`); `confirmed: true` (required) |
 
 ## Development
 
