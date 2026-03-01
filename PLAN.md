@@ -11,6 +11,26 @@ Uses the official `modelcontextprotocol/go-sdk`, a custom TrueNAS REST API HTTP 
 cross-product workflows — the first target being provisioning a Proxmox Backup Server (PBS)
 VM on TrueNAS SCALE automatically from the Proxmox MCP.
 
+## Plan Status
+
+**Phases 1–8 complete.** All planned tools are shipped, CI and release workflows are in
+place, and the README is up to date.
+
+Phase 9 (WebSocket API migration) is defined below but not yet scheduled. New phases will
+be added here when the next area of work is planned.
+
+| Phase | Status |
+|---|---|
+| 1 — Foundation | ✅ Complete |
+| 2 — Pools & Datasets | ✅ Complete |
+| 3 — VMs | ✅ Complete |
+| 4 — Docker Containers | ✅ Complete |
+| 5 — Snapshots | ✅ Complete |
+| 6 — Apps Rename + Upgrade/Rollback | ✅ Complete |
+| 7 — PBS Workflow validation | ✅ Complete |
+| 8 — CI & Releases | ✅ Complete |
+| 9 — WebSocket API Migration | ⏳ Not yet scheduled |
+
 ## Decisions
 
 | Decision | Choice | Rationale |
@@ -120,14 +140,14 @@ truenas_mcp/
 **Goal**: Working binary, client, auth, and basic read-only tools.
 
 **Tasks**:
-- [ ] `go mod init`, add MCP SDK dependency
-- [ ] Copy `.golangci.yml` and `Makefile` from proxmox-mcp (same rules)
-- [ ] Implement `internal/truenas/client.go` — HTTP client, API key auth, TLS opt-out, context timeouts
-- [ ] Implement `internal/truenas/jobs.go` — poll `/core/get_jobs` until job completes
-- [ ] Implement `internal/truenas/system.go` — `/system/info`, `/system/version`
-- [ ] Implement `tools/system.go` — `get_system_info` tool
-- [ ] Implement `cmd/truenas-mcp/main.go` — flags, env, wire-up, stdio + HTTP transports
-- [ ] `make check` passes
+- [x] `go mod init`, add MCP SDK dependency
+- [x] Copy `.golangci.yml` and `Makefile` from proxmox-mcp (same rules)
+- [x] Implement `internal/truenas/client.go` — HTTP client, API key auth, TLS opt-out, context timeouts
+- [x] Implement `internal/truenas/jobs.go` — poll `/core/get_jobs` until job completes
+- [x] Implement `internal/truenas/system.go` — `/system/info`, `/system/version`
+- [x] Implement `tools/system.go` — `get_system_info` tool
+- [x] Implement `cmd/truenas-mcp/main.go` — flags, env, wire-up, stdio + HTTP transports
+- [x] `make check` passes
 
 **Tools delivered** (~2):
 `get_system_info`, `get_system_version`
@@ -317,7 +337,7 @@ tooling — just download a binary and configure `mcp.json`.
 
 - [x] `ci.yml` passes on `main` for both repos
 - [x] `release.yml` produces binaries on a `v*` tag for both repos
-- [ ] README installation section complete for both repos
+- [x] README installation section complete for both repos
 
 ---
 

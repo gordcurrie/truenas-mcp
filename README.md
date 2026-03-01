@@ -2,53 +2,6 @@
 
 An MCP server that exposes [TrueNAS SCALE](https://www.truenas.com/truenas-scale/) operations as MCP tools, written in Go.
 
-## Setup
-
-### Prerequisites
-
-- Go 1.26+
-- A TrueNAS SCALE instance
-- An API key (create one in TrueNAS UI under **Credentials → API Keys**)
-
-### Environment Variables
-
-| Variable | Required | Description |
-|---|---|---|
-| `TRUENAS_API_URL` | yes | e.g. `https://truenas.local/api/v2.0` |
-| `TRUENAS_API_KEY` | yes | API key from TrueNAS UI |
-| `TRUENAS_INSECURE` | no | `true` to skip TLS verification (self-signed certs) |
-| `TRUENAS_ALLOW_DESTRUCTIVE` | no | `true` to enable destructive tools (default: disabled) |
-
-### Running
-
-```bash
-# stdio (default — for use with MCP clients like Claude Desktop / VS Code Copilot)
-TRUENAS_API_URL=https://truenas.local/api/v2.0 \
-TRUENAS_API_KEY=your-api-key \
-TRUENAS_INSECURE=true \
-./bin/truenas-mcp
-
-# HTTP transport
-./bin/truenas-mcp --transport http --addr localhost:8081
-```
-
-### VS Code / Claude Desktop config
-
-```json
-{
-  "mcpServers": {
-    "truenas": {
-      "command": "/path/to/truenas-mcp",
-      "env": {
-        "TRUENAS_API_URL": "https://truenas.local/api/v2.0",
-        "TRUENAS_API_KEY": "your-api-key",
-        "TRUENAS_INSECURE": "true"
-      }
-    }
-  }
-}
-```
-
 ## Tools
 
 ### System
@@ -111,6 +64,128 @@ TRUENAS_INSECURE=true \
 | `delete_vm` | Permanently delete a stopped VM | `id` (int); `confirmed: true` (required) |
 | `delete_app` | Permanently delete a TrueNAS app | `name` (string); `confirmed: true` (required) |
 | `delete_snapshot` | Permanently delete a ZFS snapshot | `id` (string, e.g. `Storage/backups@before-upgrade`); `confirmed: true` (required) |
+
+## Installation
+
+### Download a pre-built binary
+
+Download the latest release for your platform from the [Releases](https://github.com/gordcurrie/truenas-mcp/releases) page.
+
+| Platform | Binary |
+|---|---|
+| Linux (amd64) | `truenas-mcp_linux_amd64` |
+| Linux (arm64) | `truenas-mcp_linux_arm64` |
+| macOS (amd64) | `truenas-mcp_darwin_amd64` |
+| macOS (arm64) | `truenas-mcp_darwin_arm64` |
+| Windows (amd64) | `truenas-mcp_windows_amd64.exe` |
+
+Make it executable and place it on your `PATH` (substitute the filename for your platform):
+
+```bash
+chmod +x <binary-name>
+mv <binary-name> /usr/local/bin/truenas-mcp
+```
+
+> Windows users: rename the `.exe` and add it to a directory on your `%PATH%`.
+
+### Build from source
+
+Requires Go 1.26+. You will also need a TrueNAS SCALE instance and an API key — create one in the TrueNAS UI under **Credentials → API Keys**.
+
+```bash
+git clone https://github.com/gordcurrie/truenas-mcp
+cd truenas-mcp
+cp .env.example .env   # copy the example env file
+$EDITOR .env           # set TRUENAS_* values (see table below)
+make build             # binary lands in bin/truenas-mcp
+```
+
+## Configuration
+
+All configuration is via environment variables:
+
+| Variable | Required | Description |
+|---|---|---|
+| `TRUENAS_API_URL` | yes | e.g. `https://truenas.local/api/v2.0` |
+| `TRUENAS_API_KEY` | yes | API key from TrueNAS UI |
+| `TRUENAS_INSECURE` | no | `true` to skip TLS verification (self-signed certs) |
+| `TRUENAS_ALLOW_DESTRUCTIVE` | no | `true` to enable destructive tools (default: disabled) |
+
+## MCP Client Setup
+
+### Running
+
+```bash
+# stdio (default — for use with local MCP clients)
+TRUENAS_API_URL=https://truenas.local/api/v2.0 \
+TRUENAS_API_KEY=your-api-key \
+./truenas-mcp
+
+# HTTP transport (for remote or shared deployments)
+./truenas-mcp --transport http --addr localhost:8081
+```
+
+### VS Code Copilot
+
+Create `.vscode/mcp.json` in your workspace (already gitignored):
+
+```json
+{
+  "servers": {
+    "truenas": {
+      "type": "stdio",
+      "command": "/path/to/truenas-mcp",
+      "env": {
+        "TRUENAS_API_URL": "https://truenas.local/api/v2.0",
+        "TRUENAS_API_KEY": "your-api-key"
+      }
+    }
+  }
+}
+```
+
+Then open the Copilot chat panel, switch to **Agent** mode, and the `truenas` server will appear in the available tools.
+
+### Claude Desktop
+
+Add the server to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows):
+
+```json
+{
+  "mcpServers": {
+    "truenas": {
+      "command": "/path/to/truenas-mcp",
+      "env": {
+        "TRUENAS_API_URL": "https://truenas.local/api/v2.0",
+        "TRUENAS_API_KEY": "your-api-key"
+      }
+    }
+  }
+}
+```
+
+Restart Claude Desktop after saving the config.
+
+### OpenCode
+
+Add the server to `opencode.json` in your project root (or `~/.config/opencode/opencode.json` for global config):
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "truenas": {
+      "type": "local",
+      "command": ["/path/to/truenas-mcp"],
+      "enabled": true,
+      "environment": {
+        "TRUENAS_API_URL": "https://truenas.local/api/v2.0",
+        "TRUENAS_API_KEY": "your-api-key"
+      }
+    }
+  }
+}
+```
 
 ## Worked Example — Proxmox Backup Server on TrueNAS
 
@@ -178,8 +253,9 @@ Steps 1–4 are fully automated today. Steps 5–6 require future proxmox-mcp to
 ## Development
 
 ```bash
-make install-tools   # install gofumpt, gosec, govulncheck, golangci-lint
-make check           # run all quality gates (fmt, vet, lint, sec, vulncheck, test, build)
-make build           # build binary to bin/truenas-mcp
-make test            # run tests with race detector
+make install-tools   # install golangci-lint, gosec, govulncheck, gofumpt
+make check           # full quality gate: fix, fmt, vet, lint, sec, vulncheck, test, build
+make test            # tests only (with race detector)
+make build           # build only → bin/truenas-mcp
+make clean           # remove bin/truenas-mcp
 ```
