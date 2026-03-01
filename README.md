@@ -89,12 +89,15 @@ TRUENAS_INSECURE=true \
 | `stop_container` | Stop a running container; returns async job ID immediately | `name` (string) |
 | `restart_container` | Restart a container; returns async job ID immediately | `name` (string) |
 | `list_images` | List all Docker images stored on the TrueNAS SCALE system | _(none)_ |
+| `create_container` | Install a catalog app from the TrueNAS app catalog; returns async job ID | `app_name` (string); `catalog_app` (string); `train` (string, default: stable); `version` (string, default: latest) |
+| `create_custom_container` | Install a custom Docker Compose app; returns async job ID | `app_name` (string); `custom_compose_config_string` (string, YAML) |
 
 ### Destructive (requires `TRUENAS_ALLOW_DESTRUCTIVE=true`)
 
 | Tool | Description | Parameters |
 |---|---|---|
 | `delete_vm` | Permanently delete a stopped VM | `id` (int); `confirmed: true` (required) |
+| `delete_container` | Permanently delete a stopped TrueNAS app (container) | `name` (string); `confirmed: true` (required) |
 
 ## Development
 

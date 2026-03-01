@@ -88,8 +88,13 @@ func TestStartContainer_success(t *testing.T) {
 	t.Parallel()
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost || r.URL.Path != "/app/id/nginx/start" {
+		if r.Method != http.MethodPost || r.URL.Path != "/app/start" {
 			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		var name string
+		if err := json.NewDecoder(r.Body).Decode(&name); err != nil || name != "nginx" {
+			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -113,8 +118,13 @@ func TestStopContainer_success(t *testing.T) {
 	t.Parallel()
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost || r.URL.Path != "/app/id/nginx/stop" {
+		if r.Method != http.MethodPost || r.URL.Path != "/app/stop" {
 			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		var name string
+		if err := json.NewDecoder(r.Body).Decode(&name); err != nil || name != "nginx" {
+			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -138,8 +148,14 @@ func TestRestartContainer_success(t *testing.T) {
 	t.Parallel()
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost || r.URL.Path != "/app/id/nginx/restart" {
+		// TrueNAS SCALE uses /app/redeploy (not /restart) with the app name as the JSON body.
+		if r.Method != http.MethodPost || r.URL.Path != "/app/redeploy" {
 			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		var name string
+		if err := json.NewDecoder(r.Body).Decode(&name); err != nil || name != "nginx" {
+			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -189,5 +205,148 @@ func TestListImages_success(t *testing.T) {
 	}
 	if got[0].RepoTags[0] != "nginx:latest" {
 		t.Errorf("RepoTags[0] = %q, want %q", got[0].RepoTags[0], "nginx:latest")
+	}
+}
+
+func TestCreateContainer_catalogSuccess(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/app" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(42); err != nil {
+			t.Errorf("encoding response: %v", err)
+		}
+	}))
+	defer srv.Close()
+
+	c := newTestClient(t, srv.URL)
+	jobID, err := c.CreateContainer(context.Background(), &CreateContainerParams{
+		AppName:    "my-jellyfin",
+		CatalogApp: "jellyfin",
+		Train:      "stable",
+		Version:    "latest",
+	})
+	if err != nil {
+		t.Fatalf("CreateContainer: %v", err)
+	}
+	if jobID != 42 {
+		t.Errorf("jobID = %d, want 42", jobID)
+	}
+}
+
+func TestCreateContainer_customSuccess(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/app" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(7); err != nil {
+			t.Errorf("encoding response: %v", err)
+		}
+	}))
+	defer srv.Close()
+
+	c := newTestClient(t, srv.URL)
+	jobID, err := c.CreateContainer(context.Background(), &CreateContainerParams{
+		AppName:                   "my-custom-app",
+		CustomApp:                 true,
+		CustomComposeConfigString: "services:\n  web:\n    image: nginx\n",
+	})
+	if err != nil {
+		t.Fatalf("CreateContainer: %v", err)
+	}
+	if jobID != 7 {
+		t.Errorf("jobID = %d, want 7", jobID)
+	}
+}
+
+func TestCreateContainer_validation(t *testing.T) {
+	t.Parallel()
+
+	c := newTestClient(t, "http://localhost") // no server needed — validation is local
+
+	tests := []struct {
+		name   string
+		params *CreateContainerParams
+	}{
+		{"nil params", nil},
+		{"empty app_name", &CreateContainerParams{CatalogApp: "jellyfin"}},
+		{"app_name too long", &CreateContainerParams{AppName: "a123456789012345678901234567890123456789x", CatalogApp: "jellyfin"}},
+		{"app_name invalid chars", &CreateContainerParams{AppName: "My_App", CatalogApp: "jellyfin"}},
+		{"app_name starts with hyphen", &CreateContainerParams{AppName: "-bad", CatalogApp: "jellyfin"}},
+		{"catalog_app missing", &CreateContainerParams{AppName: "myapp"}},
+		{"custom missing compose", &CreateContainerParams{AppName: "myapp", CustomApp: true}},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			_, err := c.CreateContainer(context.Background(), tc.params)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+		})
+	}
+}
+
+func TestDeleteContainer_validation(t *testing.T) {
+	t.Parallel()
+
+	c := newTestClient(t, "http://localhost") // no server needed — validation is local
+
+	tests := []struct {
+		name    string
+		appName string
+	}{
+		{"empty name", ""},
+		{"name too long", "a123456789012345678901234567890123456789x"},
+		{"invalid chars", "My_App"},
+		{"starts with hyphen", "-bad"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			if err := c.DeleteContainer(context.Background(), tc.appName); err == nil {
+				t.Fatal("expected error, got nil")
+			}
+		})
+	}
+}
+
+func TestDeleteContainer_success(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodDelete || r.URL.Path != "/app/id/my-app" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	c := newTestClient(t, srv.URL)
+	if err := c.DeleteContainer(context.Background(), "my-app"); err != nil {
+		t.Fatalf("DeleteContainer: %v", err)
+	}
+}
+
+func TestDeleteContainer_notFound(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer srv.Close()
+
+	c := newTestClient(t, srv.URL)
+	if err := c.DeleteContainer(context.Background(), "does-not-exist"); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("expected ErrNotFound, got %v", err)
 	}
 }

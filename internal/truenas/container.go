@@ -4,7 +4,13 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"regexp"
 )
+
+// appNameRe is the validation pattern for TrueNAS app names.
+// Must start with a lowercase letter, end with alphanumeric, hyphens allowed in the middle.
+// Maximum length of 40 characters is enforced separately.
+var appNameRe = regexp.MustCompile(`^[a-z]([-a-z0-9]*[a-z0-9])?$`)
 
 // Container represents a TrueNAS SCALE app (Docker-based container).
 // Apps are identified by name, not numeric ID.
@@ -39,30 +45,33 @@ func (c *Client) GetContainer(ctx context.Context, name string) (*Container, err
 }
 
 // StartContainer starts the app with the given name and returns the async job ID.
+// Uses POST /app/start with the app name as the JSON body.
 // The job can be polled for completion using PollJob.
 func (c *Client) StartContainer(ctx context.Context, name string) (int, error) {
 	var jobID int
-	if err := c.post(ctx, "/app/id/"+url.PathEscape(name)+"/start", &jobID); err != nil {
+	if err := c.postWithBody(ctx, "/app/start", name, &jobID); err != nil {
 		return 0, fmt.Errorf("starting container %q: %w", name, err)
 	}
 	return jobID, nil
 }
 
 // StopContainer stops the app with the given name and returns the async job ID.
+// Uses POST /app/stop with the app name as the JSON body.
 // The job can be polled for completion using PollJob.
 func (c *Client) StopContainer(ctx context.Context, name string) (int, error) {
 	var jobID int
-	if err := c.post(ctx, "/app/id/"+url.PathEscape(name)+"/stop", &jobID); err != nil {
+	if err := c.postWithBody(ctx, "/app/stop", name, &jobID); err != nil {
 		return 0, fmt.Errorf("stopping container %q: %w", name, err)
 	}
 	return jobID, nil
 }
 
-// RestartContainer restarts the app with the given name and returns the async job ID.
+// RestartContainer redeploys (restarts) the app with the given name and returns the async job ID.
+// TrueNAS SCALE uses POST /app/redeploy (not /restart) with the app name as the JSON body.
 // The job can be polled for completion using PollJob.
 func (c *Client) RestartContainer(ctx context.Context, name string) (int, error) {
 	var jobID int
-	if err := c.post(ctx, "/app/id/"+url.PathEscape(name)+"/restart", &jobID); err != nil {
+	if err := c.postWithBody(ctx, "/app/redeploy", name, &jobID); err != nil {
 		return 0, fmt.Errorf("restarting container %q: %w", name, err)
 	}
 	return jobID, nil
@@ -75,4 +84,70 @@ func (c *Client) ListImages(ctx context.Context) ([]Image, error) {
 		return nil, fmt.Errorf("listing images: %w", err)
 	}
 	return images, nil
+}
+
+// CreateContainerParams holds the fields for installing a TrueNAS app via POST /app.
+// Set CustomApp=false for catalog apps (CatalogApp required).
+// Set CustomApp=true and provide CustomComposeConfigString for custom Docker Compose apps.
+type CreateContainerParams struct {
+	// AppName is required. Must match ^[a-z]([-a-z0-9]*[a-z0-9])?$ (max 40 chars).
+	AppName string `json:"app_name"`
+	// CatalogApp is the catalog app name to install. Required when CustomApp is false.
+	CatalogApp string `json:"catalog_app,omitempty"`
+	// Train is the catalog train (e.g. "stable", "community"). Defaults to "stable".
+	Train string `json:"train,omitempty"`
+	// Version is the app version to install. Defaults to "latest".
+	Version string `json:"version,omitempty"`
+	// CustomApp when true installs a custom Docker Compose app instead of a catalog app.
+	CustomApp bool `json:"custom_app,omitempty"`
+	// CustomComposeConfigString is the raw Docker Compose YAML. Required when CustomApp is true.
+	CustomComposeConfigString string `json:"custom_compose_config_string,omitempty"`
+	// Values are optional app-specific configuration values for catalog apps.
+	Values map[string]any `json:"values,omitempty"`
+}
+
+// CreateContainer starts installing a new TrueNAS app and returns the async job ID once the
+// job is accepted. The returned job ID can be polled for completion using PollJob.
+func (c *Client) CreateContainer(ctx context.Context, params *CreateContainerParams) (int, error) {
+	if params == nil {
+		return 0, fmt.Errorf("creating container: params must not be nil")
+	}
+	if params.AppName == "" {
+		return 0, fmt.Errorf("creating container: app_name must not be empty")
+	}
+	if len(params.AppName) > 40 {
+		return 0, fmt.Errorf("creating container: app_name must not exceed 40 characters")
+	}
+	if !appNameRe.MatchString(params.AppName) {
+		return 0, fmt.Errorf("creating container: app_name must match ^[a-z]([-a-z0-9]*[a-z0-9])?$")
+	}
+	if !params.CustomApp && params.CatalogApp == "" {
+		return 0, fmt.Errorf("creating container: catalog_app is required when custom_app is false")
+	}
+	if params.CustomApp && params.CustomComposeConfigString == "" {
+		return 0, fmt.Errorf("creating container: custom_compose_config_string is required when custom_app is true")
+	}
+
+	var jobID int
+	if err := c.postWithBody(ctx, "/app", params, &jobID); err != nil {
+		return 0, fmt.Errorf("creating container %q: %w", params.AppName, err)
+	}
+	return jobID, nil
+}
+
+// DeleteContainer permanently removes the named app from TrueNAS SCALE.
+func (c *Client) DeleteContainer(ctx context.Context, name string) error {
+	if name == "" {
+		return fmt.Errorf("deleting container: name must not be empty")
+	}
+	if len(name) > 40 {
+		return fmt.Errorf("deleting container: name must not exceed 40 characters")
+	}
+	if !appNameRe.MatchString(name) {
+		return fmt.Errorf("deleting container: name must match ^[a-z]([-a-z0-9]*[a-z0-9])?$")
+	}
+	if err := c.delete(ctx, "/app/id/"+url.PathEscape(name), nil); err != nil {
+		return fmt.Errorf("deleting container %q: %w", name, err)
+	}
+	return nil
 }

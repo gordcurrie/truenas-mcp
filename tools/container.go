@@ -95,4 +95,55 @@ func registerContainerTools(s *mcp.Server, client *truenas.Client) {
 		}
 		return jsonResult(images)
 	})
+
+	type createContainerInput struct {
+		AppName    string `json:"app_name"         jsonschema:"required,Instance name for the new app (lowercase, hyphens allowed, max 40 chars)"`
+		CatalogApp string `json:"catalog_app"      jsonschema:"required,Catalog app to install (e.g. jellyfin)"`
+		Train      string `json:"train,omitempty"  jsonschema:"Catalog train (default: stable)"`
+		Version    string `json:"version,omitempty" jsonschema:"App version to install (default: latest)"`
+	}
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "create_container",
+		Description: "Install a catalog app from the TrueNAS app catalog. Returns the async job ID immediately (non-blocking).",
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false},
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, p createContainerInput) (*mcp.CallToolResult, any, error) {
+		train := p.Train
+		if train == "" {
+			train = "stable"
+		}
+		version := p.Version
+		if version == "" {
+			version = "latest"
+		}
+		jobID, err := client.CreateContainer(ctx, &truenas.CreateContainerParams{
+			AppName:    p.AppName,
+			CatalogApp: p.CatalogApp,
+			Train:      train,
+			Version:    version,
+		})
+		if err != nil {
+			return nil, nil, fmt.Errorf("create_container: %w", err)
+		}
+		return jsonResult(map[string]int{"job_id": jobID})
+	})
+
+	type createCustomContainerInput struct {
+		AppName                   string `json:"app_name"                    jsonschema:"required,Instance name for the new app (lowercase, hyphens allowed, max 40 chars)"`
+		CustomComposeConfigString string `json:"custom_compose_config_string" jsonschema:"required,Docker Compose YAML defining the services to deploy"`
+	}
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "create_custom_container",
+		Description: "Install a custom Docker Compose app on TrueNAS SCALE. Returns the async job ID immediately (non-blocking).",
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false},
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, p createCustomContainerInput) (*mcp.CallToolResult, any, error) {
+		jobID, err := client.CreateContainer(ctx, &truenas.CreateContainerParams{
+			AppName:                   p.AppName,
+			CustomApp:                 true,
+			CustomComposeConfigString: p.CustomComposeConfigString,
+		})
+		if err != nil {
+			return nil, nil, fmt.Errorf("create_custom_container: %w", err)
+		}
+		return jsonResult(map[string]int{"job_id": jobID})
+	})
 }
