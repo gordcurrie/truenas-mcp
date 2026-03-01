@@ -97,10 +97,10 @@ func registerContainerTools(s *mcp.Server, client *truenas.Client) {
 	})
 
 	type createContainerInput struct {
-		AppName    string `json:"app_name"    jsonschema:"required,Instance name for the new app (lowercase, hyphens allowed, max 40 chars)"`
-		CatalogApp string `json:"catalog_app" jsonschema:"required,Catalog app to install (e.g. jellyfin)"`
-		Train      string `json:"train"       jsonschema:"Catalog train (default: stable)"`
-		Version    string `json:"version"     jsonschema:"App version to install (default: latest)"`
+		AppName    string `json:"app_name"         jsonschema:"required,Instance name for the new app (lowercase, hyphens allowed, max 40 chars)"`
+		CatalogApp string `json:"catalog_app"      jsonschema:"required,Catalog app to install (e.g. jellyfin)"`
+		Train      string `json:"train,omitempty"  jsonschema:"Catalog train (default: stable)"`
+		Version    string `json:"version,omitempty" jsonschema:"App version to install (default: latest)"`
 	}
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "create_container",
