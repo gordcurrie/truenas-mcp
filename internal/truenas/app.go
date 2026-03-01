@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
 	"regexp"
 )
@@ -212,7 +213,7 @@ func (c *Client) GetUpgradeSummary(ctx context.Context, name string) (*AppUpgrad
 	err := c.postWithBody(ctx, "/app/upgrade_summary", body, &summary)
 	if err != nil {
 		var apiErr *APIError
-		if errors.As(err, &apiErr) && apiErr.StatusCode == 422 {
+		if errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusUnprocessableEntity {
 			// 422 means no upgrade is available — this is a normal condition.
 			return &AppUpgradeSummary{UpgradeAvailable: false}, nil
 		}

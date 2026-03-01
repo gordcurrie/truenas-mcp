@@ -418,6 +418,13 @@ func TestGetUpgradeSummary_success(t *testing.T) {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
+		var body struct {
+			AppName string `json:"app_name"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.AppName != "my-app" {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		if err := json.NewEncoder(w).Encode(summary); err != nil {
 			t.Errorf("encoding response: %v", err)
@@ -450,6 +457,13 @@ func TestGetUpgradeSummary_noUpgrade(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost || r.URL.Path != "/app/upgrade_summary" {
 			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		var body struct {
+			AppName string `json:"app_name"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.AppName != "my-app" {
+			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
