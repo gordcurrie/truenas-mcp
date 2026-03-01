@@ -178,10 +178,10 @@ TrueNAS SCALE 25.x exposes Docker container management via `/container/image` an
 pre-packaged Docker Compose stacks.
 
 **Tasks**:
-- [ ] `internal/truenas/container.go` — list containers, get container, create container,
+- [x] `internal/truenas/container.go` — list containers, get container, create container,
   start/stop/restart/delete container; list images, pull image
-- [ ] `internal/truenas/container_test.go`
-- [ ] `tools/container.go` — `list_containers`, `get_container`, `create_container`,
+- [x] `internal/truenas/container_test.go`
+- [x] `tools/container.go` — `list_containers`, `get_container`, `create_container`,
   `start_container`, `stop_container`, `restart_container`, `list_images`, `pull_image`
 - [ ] `tools/destructive.go` — opt-in `delete_container`
 - [ ] Update README

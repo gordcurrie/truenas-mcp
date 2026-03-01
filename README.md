@@ -79,6 +79,17 @@ TRUENAS_INSECURE=true \
 | `create_vm` | Create a new VM; returns the created VM | `name`, `memory` (required); `vcpus`, `bootloader`, `autostart`, `cores`, `threads`, `cpu_mode`, `cpu_model`, `shutdown_timeout`, `description` (optional) |
 | `update_vm` | Update an existing VM configuration; omitted fields are unchanged | `id` (required); any subset of `name`, `memory`, `vcpus`, `bootloader`, `cores`, `threads`, `cpu_mode`, `cpu_model`, `shutdown_timeout`, `description` |
 
+### Docker Containers
+
+| Tool | Description | Parameters |
+|---|---|---|
+| `list_containers` | List all Docker containers managed by TrueNAS SCALE | _(none)_ |
+| `get_container` | Get detailed information about a specific container by its numeric ID | `id` (int) |
+| `start_container` | Start a container; returns async job ID immediately | `id` (int) |
+| `stop_container` | Stop a running container; returns async job ID immediately | `id` (int) |
+| `restart_container` | Restart a container; returns async job ID immediately | `id` (int) |
+| `list_images` | List all Docker images stored on the TrueNAS SCALE system | _(none)_ |
+
 ### Destructive (requires `TRUENAS_ALLOW_DESTRUCTIVE=true`)
 
 | Tool | Description | Parameters |
