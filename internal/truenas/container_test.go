@@ -3,6 +3,7 @@ package truenas
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -78,8 +79,8 @@ func TestGetContainer_notFound(t *testing.T) {
 
 	c := newTestClient(t, srv.URL)
 	_, err := c.GetContainer(context.Background(), "does-not-exist")
-	if err == nil {
-		t.Fatal("expected error, got nil")
+	if !errors.Is(err, ErrNotFound) {
+		t.Fatalf("expected ErrNotFound, got %v", err)
 	}
 }
 
