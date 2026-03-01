@@ -2,7 +2,9 @@ package truenas
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
 	"regexp"
 )
@@ -50,11 +52,23 @@ type AppUpgradeParams struct {
 	AppVersion string `json:"app_version,omitempty"`
 }
 
-// AppUpgradeSummary contains upgrade availability information for an installed app.
+// AppVersionInfo holds a version and its human-readable label.
+type AppVersionInfo struct {
+	Version      string `json:"version"`
+	HumanVersion string `json:"human_version"`
+}
+
+// AppUpgradeSummary holds the result of app.upgrade_summary.
+// UpgradeAvailable is false when the app is already on the latest version
+// (the API returns a 422 in that case rather than a summary object).
 type AppUpgradeSummary struct {
-	UpgradeAvailable bool   `json:"upgrade_available"`
-	LatestVersion    string `json:"latest_version"`
-	Changelog        string `json:"changelog"`
+	UpgradeAvailable            bool             `json:"upgrade_available"`
+	LatestVersion               string           `json:"latest_version"`
+	LatestHumanVersion          string           `json:"latest_human_version"`
+	UpgradeVersion              string           `json:"upgrade_version"`
+	UpgradeHumanVersion         string           `json:"upgrade_human_version"`
+	AvailableVersionsForUpgrade []AppVersionInfo `json:"available_versions_for_upgrade"`
+	Changelog                   *string          `json:"changelog"`
 }
 
 // ListApps returns all installed apps on the TrueNAS SCALE system.
@@ -184,15 +198,28 @@ func (c *Client) UpgradeApp(ctx context.Context, name, version string) (int, err
 	return jobID, nil
 }
 
-// GetUpgradeSummary retrieves upgrade availability and changelog for the named app.
+// GetUpgradeSummary retrieves the upgrade summary for the named app.
+// Uses POST /app/upgrade_summary with {"app_name": name}.
+// When the app is already up to date the API returns 422 — in that case
+// UpgradeAvailable is false and no error is returned.
 func (c *Client) GetUpgradeSummary(ctx context.Context, name string) (*AppUpgradeSummary, error) {
 	if err := validateAppName(name, "name"); err != nil {
 		return nil, err
 	}
+	body := struct {
+		AppName string `json:"app_name"`
+	}{AppName: name}
 	var summary AppUpgradeSummary
-	if err := c.get(ctx, "/app/id/"+url.PathEscape(name)+"/upgrade_summary", &summary); err != nil {
+	err := c.postWithBody(ctx, "/app/upgrade_summary", body, &summary)
+	if err != nil {
+		var apiErr *APIError
+		if errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusUnprocessableEntity {
+			// 422 means no upgrade is available — this is a normal condition.
+			return &AppUpgradeSummary{UpgradeAvailable: false}, nil
+		}
 		return nil, fmt.Errorf("getting upgrade summary for app %q: %w", name, err)
 	}
+	summary.UpgradeAvailable = true
 	return &summary, nil
 }
 

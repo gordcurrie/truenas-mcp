@@ -254,7 +254,7 @@ release). Add the genuinely new operations not covered in Phase 4: upgrade and r
 
 ---
 
-### Phase 7 — PBS Provisioning Workflow (the target use case)
+### Phase 7 — PBS Provisioning Workflow ✅
 
 **Goal**: End-to-end automated PBS setup driven by an AI agent across both MCPs.
 
@@ -268,7 +268,8 @@ accomplish the full workflow:
 5. `add_storage` (proxmox-mcp — future tool) — register PBS as backup target
 6. `create_backup_job` (proxmox-mcp — future tool) — schedule all VMs nightly
 
-Document this workflow in README as a worked example.
+**Tasks**:
+- [x] Document this workflow in README as a worked example
 
 ---
 

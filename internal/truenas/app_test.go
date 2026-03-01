@@ -403,15 +403,26 @@ func TestUpgradeApp_validation(t *testing.T) {
 func TestGetUpgradeSummary_success(t *testing.T) {
 	t.Parallel()
 
+	changelog := "Bug fixes."
 	summary := AppUpgradeSummary{
-		UpgradeAvailable: true,
-		LatestVersion:    "2.0.0",
-		Changelog:        "Bug fixes.",
+		LatestVersion:               "2.0.0",
+		LatestHumanVersion:          "2.0.0_1.0.0",
+		UpgradeVersion:              "2.0.0",
+		UpgradeHumanVersion:         "2.0.0_1.0.0",
+		AvailableVersionsForUpgrade: []AppVersionInfo{{Version: "2.0.0", HumanVersion: "2.0.0_1.0.0"}},
+		Changelog:                   &changelog,
 	}
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet || r.URL.Path != "/app/id/my-app/upgrade_summary" {
+		if r.Method != http.MethodPost || r.URL.Path != "/app/upgrade_summary" {
 			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		var body struct {
+			AppName string `json:"app_name"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.AppName != "my-app" {
+			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -431,6 +442,43 @@ func TestGetUpgradeSummary_success(t *testing.T) {
 	}
 	if got.LatestVersion != "2.0.0" {
 		t.Errorf("LatestVersion = %q, want %q", got.LatestVersion, "2.0.0")
+	}
+	if got.Changelog == nil || *got.Changelog != "Bug fixes." {
+		t.Errorf("Changelog = %v, want %q", got.Changelog, "Bug fixes.")
+	}
+	if len(got.AvailableVersionsForUpgrade) != 1 {
+		t.Errorf("AvailableVersionsForUpgrade len = %d, want 1", len(got.AvailableVersionsForUpgrade))
+	}
+}
+
+func TestGetUpgradeSummary_noUpgrade(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/app/upgrade_summary" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		var body struct {
+			AppName string `json:"app_name"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.AppName != "my-app" {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		_, _ = w.Write([]byte(`{"message":"No upgrade available for 'my-app'","errno":14}`))
+	}))
+	defer srv.Close()
+
+	c := newTestClient(t, srv.URL)
+	got, err := c.GetUpgradeSummary(context.Background(), "my-app")
+	if err != nil {
+		t.Fatalf("expected no error for 422 no-upgrade, got: %v", err)
+	}
+	if got.UpgradeAvailable {
+		t.Errorf("UpgradeAvailable = true, want false")
 	}
 }
 
