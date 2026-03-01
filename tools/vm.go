@@ -91,7 +91,7 @@ func registerVMTools(s *mcp.Server, client *truenas.Client) {
 	})
 
 	type createVMInput struct {
-		Name            string `json:"name"                       jsonschema:"required,VM name"`
+		Name            string `json:"name"                       jsonschema:"required,VM name (alphanumeric characters only; hyphens and special characters are not allowed)"`
 		Memory          int    `json:"memory"                     jsonschema:"required,RAM in MiB (e.g. 4096 for 4 GiB)"`
 		Description     string `json:"description,omitempty"      jsonschema:"Optional description"`
 		VCPUs           int    `json:"vcpus,omitempty"            jsonschema:"Total virtual CPU count; defaults to 1"`
@@ -106,7 +106,7 @@ func registerVMTools(s *mcp.Server, client *truenas.Client) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "create_vm",
-		Description: "Create a new virtual machine. At minimum provide name and memory (in MiB). Returns the created VM.",
+		Description: "Create a new virtual machine. At minimum provide name and memory (in MiB). Returns the created VM. Note: VM names must be alphanumeric only — hyphens, underscores, and other special characters are not allowed.",
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p createVMInput) (*mcp.CallToolResult, any, error) {
 		vm, err := client.CreateVM(ctx, &truenas.CreateVMParams{
