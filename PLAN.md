@@ -191,17 +191,17 @@ config (`custom_compose_config_string`).
 `list_containers`, `get_container`, `start_container`, `stop_container`,
 `restart_container`, `list_images`
 
-#### Phase 4b — Create + Delete
+#### Phase 4b — Create + Delete (✅ PR #6)
 
 **Tasks**:
-- [ ] `internal/truenas/container.go` — `CreateContainer` (catalog + custom compose),
+- [x] `internal/truenas/container.go` — `CreateContainer` (catalog + custom compose),
   `DeleteContainer`
-- [ ] `internal/truenas/container_test.go`
-- [ ] `tools/container.go` — `create_container` (catalog), `create_custom_container`
-- [ ] `tools/destructive.go` — opt-in `delete_container`
-- [ ] Update README
+- [x] `internal/truenas/container_test.go`
+- [x] `tools/container.go` — `create_container` (catalog), `create_custom_container`
+- [x] `tools/destructive.go` — opt-in `delete_container`
+- [x] Update README
 
-**Tools to deliver (~3)**:
+**Tools delivered (3)**:
 `create_container`, `create_custom_container`, `delete_container` (destructive)
 
 ---
