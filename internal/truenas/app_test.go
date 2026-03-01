@@ -9,10 +9,10 @@ import (
 	"testing"
 )
 
-func TestListContainers_success(t *testing.T) {
+func TestListApps_success(t *testing.T) {
 	t.Parallel()
 
-	containers := []Container{
+	apps := []App{
 		{Name: "nginx", State: "RUNNING"},
 		{Name: "redis", State: "STOPPED"},
 	}
@@ -23,16 +23,16 @@ func TestListContainers_success(t *testing.T) {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(containers); err != nil {
+		if err := json.NewEncoder(w).Encode(apps); err != nil {
 			t.Errorf("encoding response: %v", err)
 		}
 	}))
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
-	got, err := c.ListContainers(context.Background())
+	got, err := c.ListApps(context.Background())
 	if err != nil {
-		t.Fatalf("ListContainers: %v", err)
+		t.Fatalf("ListApps: %v", err)
 	}
 	if len(got) != 2 {
 		t.Errorf("len = %d, want 2", len(got))
@@ -42,10 +42,10 @@ func TestListContainers_success(t *testing.T) {
 	}
 }
 
-func TestGetContainer_success(t *testing.T) {
+func TestGetApp_success(t *testing.T) {
 	t.Parallel()
 
-	container := Container{Name: "nginx", State: "RUNNING"}
+	app := App{Name: "nginx", State: "RUNNING"}
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet || r.URL.Path != "/app/id/nginx" {
@@ -53,23 +53,23 @@ func TestGetContainer_success(t *testing.T) {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(container); err != nil {
+		if err := json.NewEncoder(w).Encode(app); err != nil {
 			t.Errorf("encoding response: %v", err)
 		}
 	}))
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
-	got, err := c.GetContainer(context.Background(), "nginx")
+	got, err := c.GetApp(context.Background(), "nginx")
 	if err != nil {
-		t.Fatalf("GetContainer: %v", err)
+		t.Fatalf("GetApp: %v", err)
 	}
 	if got.Name != "nginx" {
 		t.Errorf("Name = %q, want %q", got.Name, "nginx")
 	}
 }
 
-func TestGetContainer_notFound(t *testing.T) {
+func TestGetApp_notFound(t *testing.T) {
 	t.Parallel()
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -78,13 +78,13 @@ func TestGetContainer_notFound(t *testing.T) {
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
-	_, err := c.GetContainer(context.Background(), "does-not-exist")
+	_, err := c.GetApp(context.Background(), "does-not-exist")
 	if !errors.Is(err, ErrNotFound) {
 		t.Fatalf("expected ErrNotFound, got %v", err)
 	}
 }
 
-func TestStartContainer_success(t *testing.T) {
+func TestStartApp_success(t *testing.T) {
 	t.Parallel()
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -105,16 +105,16 @@ func TestStartContainer_success(t *testing.T) {
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
-	jobID, err := c.StartContainer(context.Background(), "nginx")
+	jobID, err := c.StartApp(context.Background(), "nginx")
 	if err != nil {
-		t.Fatalf("StartContainer: %v", err)
+		t.Fatalf("StartApp: %v", err)
 	}
 	if jobID != 10 {
 		t.Errorf("jobID = %d, want 10", jobID)
 	}
 }
 
-func TestStopContainer_success(t *testing.T) {
+func TestStopApp_success(t *testing.T) {
 	t.Parallel()
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -135,16 +135,16 @@ func TestStopContainer_success(t *testing.T) {
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
-	jobID, err := c.StopContainer(context.Background(), "nginx")
+	jobID, err := c.StopApp(context.Background(), "nginx")
 	if err != nil {
-		t.Fatalf("StopContainer: %v", err)
+		t.Fatalf("StopApp: %v", err)
 	}
 	if jobID != 11 {
 		t.Errorf("jobID = %d, want 11", jobID)
 	}
 }
 
-func TestRestartContainer_success(t *testing.T) {
+func TestRestartApp_success(t *testing.T) {
 	t.Parallel()
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -166,9 +166,9 @@ func TestRestartContainer_success(t *testing.T) {
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
-	jobID, err := c.RestartContainer(context.Background(), "nginx")
+	jobID, err := c.RestartApp(context.Background(), "nginx")
 	if err != nil {
-		t.Fatalf("RestartContainer: %v", err)
+		t.Fatalf("RestartApp: %v", err)
 	}
 	if jobID != 12 {
 		t.Errorf("jobID = %d, want 12", jobID)
@@ -208,7 +208,7 @@ func TestListImages_success(t *testing.T) {
 	}
 }
 
-func TestCreateContainer_catalogSuccess(t *testing.T) {
+func TestCreateApp_catalogSuccess(t *testing.T) {
 	t.Parallel()
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -224,21 +224,21 @@ func TestCreateContainer_catalogSuccess(t *testing.T) {
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
-	jobID, err := c.CreateContainer(context.Background(), &CreateContainerParams{
+	jobID, err := c.CreateApp(context.Background(), &CreateAppParams{
 		AppName:    "my-jellyfin",
 		CatalogApp: "jellyfin",
 		Train:      "stable",
 		Version:    "latest",
 	})
 	if err != nil {
-		t.Fatalf("CreateContainer: %v", err)
+		t.Fatalf("CreateApp: %v", err)
 	}
 	if jobID != 42 {
 		t.Errorf("jobID = %d, want 42", jobID)
 	}
 }
 
-func TestCreateContainer_customSuccess(t *testing.T) {
+func TestCreateApp_customSuccess(t *testing.T) {
 	t.Parallel()
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -254,40 +254,40 @@ func TestCreateContainer_customSuccess(t *testing.T) {
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
-	jobID, err := c.CreateContainer(context.Background(), &CreateContainerParams{
+	jobID, err := c.CreateApp(context.Background(), &CreateAppParams{
 		AppName:                   "my-custom-app",
 		CustomApp:                 true,
 		CustomComposeConfigString: "services:\n  web:\n    image: nginx\n",
 	})
 	if err != nil {
-		t.Fatalf("CreateContainer: %v", err)
+		t.Fatalf("CreateApp: %v", err)
 	}
 	if jobID != 7 {
 		t.Errorf("jobID = %d, want 7", jobID)
 	}
 }
 
-func TestCreateContainer_validation(t *testing.T) {
+func TestCreateApp_validation(t *testing.T) {
 	t.Parallel()
 
 	c := newTestClient(t, "http://localhost") // no server needed — validation is local
 
 	tests := []struct {
 		name   string
-		params *CreateContainerParams
+		params *CreateAppParams
 	}{
 		{"nil params", nil},
-		{"empty app_name", &CreateContainerParams{CatalogApp: "jellyfin"}},
-		{"app_name too long", &CreateContainerParams{AppName: "a123456789012345678901234567890123456789x", CatalogApp: "jellyfin"}},
-		{"app_name invalid chars", &CreateContainerParams{AppName: "My_App", CatalogApp: "jellyfin"}},
-		{"app_name starts with hyphen", &CreateContainerParams{AppName: "-bad", CatalogApp: "jellyfin"}},
-		{"catalog_app missing", &CreateContainerParams{AppName: "myapp"}},
-		{"custom missing compose", &CreateContainerParams{AppName: "myapp", CustomApp: true}},
+		{"empty app_name", &CreateAppParams{CatalogApp: "jellyfin"}},
+		{"app_name too long", &CreateAppParams{AppName: "a123456789012345678901234567890123456789x", CatalogApp: "jellyfin"}},
+		{"app_name invalid chars", &CreateAppParams{AppName: "My_App", CatalogApp: "jellyfin"}},
+		{"app_name starts with hyphen", &CreateAppParams{AppName: "-bad", CatalogApp: "jellyfin"}},
+		{"catalog_app missing", &CreateAppParams{AppName: "myapp"}},
+		{"custom missing compose", &CreateAppParams{AppName: "myapp", CustomApp: true}},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			_, err := c.CreateContainer(context.Background(), tc.params)
+			_, err := c.CreateApp(context.Background(), tc.params)
 			if err == nil {
 				t.Fatal("expected error, got nil")
 			}
@@ -295,7 +295,7 @@ func TestCreateContainer_validation(t *testing.T) {
 	}
 }
 
-func TestDeleteContainer_validation(t *testing.T) {
+func TestDeleteApp_validation(t *testing.T) {
 	t.Parallel()
 
 	c := newTestClient(t, "http://localhost") // no server needed — validation is local
@@ -312,14 +312,14 @@ func TestDeleteContainer_validation(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			if err := c.DeleteContainer(context.Background(), tc.appName); err == nil {
+			if err := c.DeleteApp(context.Background(), tc.appName); err == nil {
 				t.Fatal("expected error, got nil")
 			}
 		})
 	}
 }
 
-func TestDeleteContainer_success(t *testing.T) {
+func TestDeleteApp_success(t *testing.T) {
 	t.Parallel()
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -332,12 +332,12 @@ func TestDeleteContainer_success(t *testing.T) {
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
-	if err := c.DeleteContainer(context.Background(), "my-app"); err != nil {
-		t.Fatalf("DeleteContainer: %v", err)
+	if err := c.DeleteApp(context.Background(), "my-app"); err != nil {
+		t.Fatalf("DeleteApp: %v", err)
 	}
 }
 
-func TestDeleteContainer_notFound(t *testing.T) {
+func TestDeleteApp_notFound(t *testing.T) {
 	t.Parallel()
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -346,7 +346,125 @@ func TestDeleteContainer_notFound(t *testing.T) {
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
-	if err := c.DeleteContainer(context.Background(), "does-not-exist"); !errors.Is(err, ErrNotFound) {
+	if err := c.DeleteApp(context.Background(), "does-not-exist"); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("expected ErrNotFound, got %v", err)
+	}
+}
+
+func TestUpgradeApp_success(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/app/id/my-app/upgrade" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(20); err != nil {
+			t.Errorf("encoding response: %v", err)
+		}
+	}))
+	defer srv.Close()
+
+	c := newTestClient(t, srv.URL)
+	jobID, err := c.UpgradeApp(context.Background(), "my-app", "")
+	if err != nil {
+		t.Fatalf("UpgradeApp: %v", err)
+	}
+	if jobID != 20 {
+		t.Errorf("jobID = %d, want 20", jobID)
+	}
+}
+
+func TestUpgradeApp_validation(t *testing.T) {
+	t.Parallel()
+
+	c := newTestClient(t, "http://localhost") // no server needed — validation is local
+
+	tests := []struct {
+		name    string
+		appName string
+	}{
+		{"empty name", ""},
+		{"name too long", "a123456789012345678901234567890123456789x"},
+		{"invalid chars", "My_App"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			_, err := c.UpgradeApp(context.Background(), tc.appName, "")
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+		})
+	}
+}
+
+func TestGetUpgradeSummary_success(t *testing.T) {
+	t.Parallel()
+
+	summary := AppUpgradeSummary{
+		UpgradeAvailable: true,
+		LatestVersion:    "2.0.0",
+		Changelog:        "Bug fixes.",
+	}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || r.URL.Path != "/app/id/my-app/upgrade_summary" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(summary); err != nil {
+			t.Errorf("encoding response: %v", err)
+		}
+	}))
+	defer srv.Close()
+
+	c := newTestClient(t, srv.URL)
+	got, err := c.GetUpgradeSummary(context.Background(), "my-app")
+	if err != nil {
+		t.Fatalf("GetUpgradeSummary: %v", err)
+	}
+	if !got.UpgradeAvailable {
+		t.Errorf("UpgradeAvailable = false, want true")
+	}
+	if got.LatestVersion != "2.0.0" {
+		t.Errorf("LatestVersion = %q, want %q", got.LatestVersion, "2.0.0")
+	}
+}
+
+func TestRollbackApp_success(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/app/id/my-app/rollback" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(21); err != nil {
+			t.Errorf("encoding response: %v", err)
+		}
+	}))
+	defer srv.Close()
+
+	c := newTestClient(t, srv.URL)
+	jobID, err := c.RollbackApp(context.Background(), "my-app", "1.9.0")
+	if err != nil {
+		t.Fatalf("RollbackApp: %v", err)
+	}
+	if jobID != 21 {
+		t.Errorf("jobID = %d, want 21", jobID)
+	}
+}
+
+func TestRollbackApp_emptyVersion(t *testing.T) {
+	t.Parallel()
+
+	c := newTestClient(t, "http://localhost") // no server needed — validation is local
+	_, err := c.RollbackApp(context.Background(), "my-app", "")
+	if err == nil {
+		t.Fatal("expected error for empty version, got nil")
 	}
 }

@@ -36,24 +36,24 @@ func registerDestructiveTools(s *mcp.Server, client *truenas.Client) {
 		return jsonResult(map[string]any{"deleted": true, "id": p.ID})
 	})
 
-	type deleteContainerInput struct {
+	type deleteAppInput struct {
 		Name      string `json:"name"      jsonschema:"required,App name (as shown in the TrueNAS UI)"`
 		Confirmed bool   `json:"confirmed" jsonschema:"required,Must be set to true to confirm deletion"`
 	}
 
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "delete_container",
-		Description: "Permanently delete a TrueNAS app (container) by name. The app must be stopped first. Set confirmed=true to proceed.",
+		Name:        "delete_app",
+		Description: "Permanently delete a TrueNAS app by name. The app must be stopped first. Set confirmed=true to proceed.",
 		Annotations: &mcp.ToolAnnotations{
 			ReadOnlyHint:    false,
 			DestructiveHint: &destructiveHint,
 		},
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, p deleteContainerInput) (*mcp.CallToolResult, any, error) {
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, p deleteAppInput) (*mcp.CallToolResult, any, error) {
 		if !p.Confirmed {
-			return nil, nil, errors.New("delete_container: confirmed must be true to proceed with deletion")
+			return nil, nil, errors.New("delete_app: confirmed must be true to proceed with deletion")
 		}
-		if err := client.DeleteContainer(ctx, p.Name); err != nil {
-			return nil, nil, fmt.Errorf("delete_container: %w", err)
+		if err := client.DeleteApp(ctx, p.Name); err != nil {
+			return nil, nil, fmt.Errorf("delete_app: %w", err)
 		}
 		return jsonResult(map[string]any{"deleted": true, "name": p.Name})
 	})

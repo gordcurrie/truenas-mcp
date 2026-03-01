@@ -179,30 +179,33 @@ config (`custom_compose_config_string`).
 
 #### Phase 4a — Read + Lifecycle (✅ PR #5)
 
+> **Note**: files and tool names originally used `container` terminology; renamed to `app`
+> in Phase 6 once it became clear the `/app` endpoint is the apps API, not a container API.
+> The experimental container UI in TrueNAS 25.10 will get its own endpoints in a future release.
+
 **Tasks**:
-- [x] `internal/truenas/container.go` — list containers, get container,
-  start/stop/restart container; list images
-- [x] `internal/truenas/container_test.go`
-- [x] `tools/container.go` — `list_containers`, `get_container`,
-  `start_container`, `stop_container`, `restart_container`, `list_images`
+- [x] `internal/truenas/container.go` → `app.go` — list apps, get app,
+  start/stop/restart app; list images
+- [x] `internal/truenas/container_test.go` → `app_test.go`
+- [x] `tools/container.go` → `app.go` — `list_apps`, `get_app`,
+  `start_app`, `stop_app`, `restart_app`, `list_images`
 - [x] Update README
 
 **Tools delivered (6)**:
-`list_containers`, `get_container`, `start_container`, `stop_container`,
-`restart_container`, `list_images`
+`list_apps`, `get_app`, `start_app`, `stop_app`, `restart_app`, `list_images`
 
 #### Phase 4b — Create + Delete (✅ PR #6)
 
 **Tasks**:
-- [x] `internal/truenas/container.go` — `CreateContainer` (catalog + custom compose),
-  `DeleteContainer`
-- [x] `internal/truenas/container_test.go`
-- [x] `tools/container.go` — `create_container` (catalog), `create_custom_container`
-- [x] `tools/destructive.go` — opt-in `delete_container`
+- [x] `internal/truenas/app.go` — `CreateApp` (catalog + custom compose),
+  `DeleteApp`
+- [x] `internal/truenas/app_test.go`
+- [x] `tools/app.go` — `install_app` (catalog), `install_custom_app`
+- [x] `tools/destructive.go` — opt-in `delete_app`
 - [x] Update README
 
 **Tools delivered (3)**:
-`create_container`, `create_custom_container`, `delete_container` (destructive)
+`install_app`, `install_custom_app`, `delete_app` (destructive)
 
 ---
 
@@ -222,19 +225,32 @@ config (`custom_compose_config_string`).
 
 ---
 
-### Phase 6 — TrueNAS Apps
+### Phase 6 — Apps Rename + Upgrade/Rollback
 
-**Goal**: Manage catalog apps (Docker Compose–based) — useful for deploying packaged
-workloads like PBS if a native app becomes available.
+**Goal**: Rename all `container` terminology to `app` (the `/app` endpoint is the TrueNAS
+apps API — the experimental container UI will get its own endpoints in a future TrueNAS
+release). Add the genuinely new operations not covered in Phase 4: upgrade and rollback.
 
 **Tasks**:
-- [ ] `internal/truenas/app.go` — list apps, get app, install app, start/stop app, delete app
-- [ ] `tools/app.go` — `list_apps`, `get_app`, `install_app`, `start_app`, `stop_app`
-- [ ] `tools/destructive.go` — opt-in `delete_app`
-- [ ] Update README
+- [x] `git mv internal/truenas/container.go internal/truenas/app.go` — rename file
+- [x] `git mv internal/truenas/container_test.go internal/truenas/app_test.go` — rename file
+- [x] `git mv tools/container.go tools/app.go` — rename file
+- [x] Rename all types/functions: `Container`→`App`, `ListContainers`→`ListApps`,
+  `GetContainer`→`GetApp`, `StartContainer`→`StartApp`, `StopContainer`→`StopApp`,
+  `RestartContainer`→`RestartApp`, `CreateContainerParams`→`CreateAppParams`,
+  `CreateContainer`→`CreateApp`, `DeleteContainer`→`DeleteApp`
+- [x] Rename all MCP tool names: `list_containers`→`list_apps`, `get_container`→`get_app`,
+  `start_container`→`start_app`, `stop_container`→`stop_app`,
+  `restart_container`→`restart_app`, `create_container`→`install_app`,
+  `create_custom_container`→`install_custom_app`, `delete_container`→`delete_app`
+- [x] `internal/truenas/app.go` — add `UpgradeApp`, `RollbackApp`, `UpgradeSummary`
+- [x] `tools/app.go` — add `upgrade_app`, `rollback_app`, `upgrade_summary`
+- [x] Update `tools/register.go`: `registerContainerTools` → `registerAppTools`
+- [x] Update README
+- [x] Update PLAN.md
 
-**Tools delivered** (~6):
-`list_apps`, `get_app`, `install_app`, `start_app`, `stop_app`, `delete_app` (destructive)
+**Tools delivered** (~3 net new, 8 renamed):
+`upgrade_app`, `rollback_app`, `upgrade_summary`
 
 ---
 
@@ -246,8 +262,8 @@ This isn't a new tool — it's a validation that the existing tools compose corr
 accomplish the full workflow:
 
 1. `create_dataset` (truenas-mcp) — create `tank/proxmox-backups`
-2. `create_vm` or `create_container` (truenas-mcp) — Debian 12 VM or lightweight container
-3. `start_vm` / `start_container` (truenas-mcp) — boot the instance
+2. `create_vm` or `install_app` (truenas-mcp) — Debian 12 VM or lightweight app
+3. `start_vm` / `start_app` (truenas-mcp) — boot the instance
 4. *(manual step)* — install PBS inside the guest via SSH / console
 5. `add_storage` (proxmox-mcp — future tool) — register PBS as backup target
 6. `create_backup_job` (proxmox-mcp — future tool) — schedule all VMs nightly
@@ -265,9 +281,9 @@ Document this workflow in README as a worked example.
 | 3 — VMs | 8 | 15 |
 | 4 — Docker Containers | 9 | 24 |
 | 5 — Snapshots | 5 | 29 |
-| 6 — Apps | 6 | 34 |
-| 7 — PBS Workflow | 0 (validation) | 34 |
-| 8 — CI & Releases | 0 | 34 |
+| 6 — Apps Rename + Upgrade/Rollback | 3 | 32 |
+| 7 — PBS Workflow | 0 (validation) | 32 |
+| 8 — CI & Releases | 0 | 32 |
 
 ---
 
@@ -315,7 +331,7 @@ in v26.04 (estimated mid-2026). The replacement is JSON-RPC 2.0 over WebSocket a
 ### Impact
 
 Only `internal/truenas/client.go` needs a full rewrite. All other files
-(`container.go`, `vm.go`, `pool.go`, `dataset.go`, `system.go`, `jobs.go`) keep their
+  (`app.go`, `vm.go`, `pool.go`, `dataset.go`, `system.go`, `jobs.go`) keep their
 method signatures and logic — only the underlying transport changes.
 
 Method names map 1-to-1 from REST path to JSON-RPC method, e.g.:
