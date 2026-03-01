@@ -88,8 +88,13 @@ func TestStartContainer_success(t *testing.T) {
 	t.Parallel()
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost || r.URL.Path != "/app/id/nginx/start" {
+		if r.Method != http.MethodPost || r.URL.Path != "/app/start" {
 			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		var name string
+		if err := json.NewDecoder(r.Body).Decode(&name); err != nil || name != "nginx" {
+			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -113,8 +118,13 @@ func TestStopContainer_success(t *testing.T) {
 	t.Parallel()
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost || r.URL.Path != "/app/id/nginx/stop" {
+		if r.Method != http.MethodPost || r.URL.Path != "/app/stop" {
 			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		var name string
+		if err := json.NewDecoder(r.Body).Decode(&name); err != nil || name != "nginx" {
+			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -138,8 +148,14 @@ func TestRestartContainer_success(t *testing.T) {
 	t.Parallel()
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost || r.URL.Path != "/app/id/nginx/restart" {
+		// TrueNAS SCALE uses /app/redeploy (not /restart) with the app name as the JSON body.
+		if r.Method != http.MethodPost || r.URL.Path != "/app/redeploy" {
 			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		var name string
+		if err := json.NewDecoder(r.Body).Decode(&name); err != nil || name != "nginx" {
+			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")

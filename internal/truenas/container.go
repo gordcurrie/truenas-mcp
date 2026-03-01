@@ -45,30 +45,33 @@ func (c *Client) GetContainer(ctx context.Context, name string) (*Container, err
 }
 
 // StartContainer starts the app with the given name and returns the async job ID.
+// Uses POST /app/start with the app name as the JSON body.
 // The job can be polled for completion using PollJob.
 func (c *Client) StartContainer(ctx context.Context, name string) (int, error) {
 	var jobID int
-	if err := c.post(ctx, "/app/id/"+url.PathEscape(name)+"/start", &jobID); err != nil {
+	if err := c.postWithBody(ctx, "/app/start", name, &jobID); err != nil {
 		return 0, fmt.Errorf("starting container %q: %w", name, err)
 	}
 	return jobID, nil
 }
 
 // StopContainer stops the app with the given name and returns the async job ID.
+// Uses POST /app/stop with the app name as the JSON body.
 // The job can be polled for completion using PollJob.
 func (c *Client) StopContainer(ctx context.Context, name string) (int, error) {
 	var jobID int
-	if err := c.post(ctx, "/app/id/"+url.PathEscape(name)+"/stop", &jobID); err != nil {
+	if err := c.postWithBody(ctx, "/app/stop", name, &jobID); err != nil {
 		return 0, fmt.Errorf("stopping container %q: %w", name, err)
 	}
 	return jobID, nil
 }
 
-// RestartContainer restarts the app with the given name and returns the async job ID.
+// RestartContainer redeploys (restarts) the app with the given name and returns the async job ID.
+// TrueNAS SCALE uses POST /app/redeploy (not /restart) with the app name as the JSON body.
 // The job can be polled for completion using PollJob.
 func (c *Client) RestartContainer(ctx context.Context, name string) (int, error) {
 	var jobID int
-	if err := c.post(ctx, "/app/id/"+url.PathEscape(name)+"/restart", &jobID); err != nil {
+	if err := c.postWithBody(ctx, "/app/redeploy", name, &jobID); err != nil {
 		return 0, fmt.Errorf("restarting container %q: %w", name, err)
 	}
 	return jobID, nil
