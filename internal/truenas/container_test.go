@@ -12,12 +12,12 @@ func TestListContainers_success(t *testing.T) {
 	t.Parallel()
 
 	containers := []Container{
-		{ID: 1, Name: "nginx", Image: "nginx:latest", Status: ContainerStatus{State: "RUNNING"}},
-		{ID: 2, Name: "redis", Image: "redis:7", Status: ContainerStatus{State: "STOPPED"}},
+		{Name: "nginx", State: "RUNNING"},
+		{Name: "redis", State: "STOPPED"},
 	}
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet || r.URL.Path != "/container/container" {
+		if r.Method != http.MethodGet || r.URL.Path != "/app" {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
@@ -44,10 +44,10 @@ func TestListContainers_success(t *testing.T) {
 func TestGetContainer_success(t *testing.T) {
 	t.Parallel()
 
-	container := Container{ID: 1, Name: "nginx", Image: "nginx:latest", Status: ContainerStatus{State: "RUNNING"}}
+	container := Container{Name: "nginx", State: "RUNNING"}
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet || r.URL.Path != "/container/container/id/1" {
+		if r.Method != http.MethodGet || r.URL.Path != "/app/id/nginx" {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
@@ -59,12 +59,12 @@ func TestGetContainer_success(t *testing.T) {
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
-	got, err := c.GetContainer(context.Background(), 1)
+	got, err := c.GetContainer(context.Background(), "nginx")
 	if err != nil {
 		t.Fatalf("GetContainer: %v", err)
 	}
-	if got.ID != 1 {
-		t.Errorf("ID = %d, want 1", got.ID)
+	if got.Name != "nginx" {
+		t.Errorf("Name = %q, want %q", got.Name, "nginx")
 	}
 }
 
@@ -77,7 +77,7 @@ func TestGetContainer_notFound(t *testing.T) {
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
-	_, err := c.GetContainer(context.Background(), 99)
+	_, err := c.GetContainer(context.Background(), "does-not-exist")
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -87,7 +87,7 @@ func TestStartContainer_success(t *testing.T) {
 	t.Parallel()
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost || r.URL.Path != "/container/container/id/1/start" {
+		if r.Method != http.MethodPost || r.URL.Path != "/app/id/nginx/start" {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
@@ -99,7 +99,7 @@ func TestStartContainer_success(t *testing.T) {
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
-	jobID, err := c.StartContainer(context.Background(), 1)
+	jobID, err := c.StartContainer(context.Background(), "nginx")
 	if err != nil {
 		t.Fatalf("StartContainer: %v", err)
 	}
@@ -112,7 +112,7 @@ func TestStopContainer_success(t *testing.T) {
 	t.Parallel()
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost || r.URL.Path != "/container/container/id/1/stop" {
+		if r.Method != http.MethodPost || r.URL.Path != "/app/id/nginx/stop" {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
@@ -124,7 +124,7 @@ func TestStopContainer_success(t *testing.T) {
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
-	jobID, err := c.StopContainer(context.Background(), 1)
+	jobID, err := c.StopContainer(context.Background(), "nginx")
 	if err != nil {
 		t.Fatalf("StopContainer: %v", err)
 	}
@@ -137,7 +137,7 @@ func TestRestartContainer_success(t *testing.T) {
 	t.Parallel()
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost || r.URL.Path != "/container/container/id/1/restart" {
+		if r.Method != http.MethodPost || r.URL.Path != "/app/id/nginx/restart" {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
@@ -149,7 +149,7 @@ func TestRestartContainer_success(t *testing.T) {
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
-	jobID, err := c.RestartContainer(context.Background(), 1)
+	jobID, err := c.RestartContainer(context.Background(), "nginx")
 	if err != nil {
 		t.Fatalf("RestartContainer: %v", err)
 	}
@@ -162,12 +162,12 @@ func TestListImages_success(t *testing.T) {
 	t.Parallel()
 
 	images := []Image{
-		{ID: 1, RepoTags: []string{"nginx:latest"}, Size: 142000000},
-		{ID: 2, RepoTags: []string{"redis:7"}, Size: 45000000},
+		{ID: "sha256:abc123", RepoTags: []string{"nginx:latest"}, Size: 142000000},
+		{ID: "sha256:def456", RepoTags: []string{"redis:7"}, Size: 45000000},
 	}
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet || r.URL.Path != "/container/image" {
+		if r.Method != http.MethodGet || r.URL.Path != "/app/image" {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}

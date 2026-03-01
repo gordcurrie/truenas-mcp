@@ -24,14 +24,14 @@ func registerContainerTools(s *mcp.Server, client *truenas.Client) {
 	})
 
 	type getContainerInput struct {
-		ID int `json:"id" jsonschema:"required,Numeric container ID"`
+		Name string `json:"name" jsonschema:"required,App name (as shown in the TrueNAS UI)"`
 	}
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "get_container",
-		Description: "Get detailed information about a specific Docker container by its numeric ID.",
+		Description: "Get detailed information about a specific Docker container by its app name.",
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p getContainerInput) (*mcp.CallToolResult, any, error) {
-		container, err := client.GetContainer(ctx, p.ID)
+		container, err := client.GetContainer(ctx, p.Name)
 		if err != nil {
 			return nil, nil, fmt.Errorf("get_container: %w", err)
 		}
@@ -39,14 +39,14 @@ func registerContainerTools(s *mcp.Server, client *truenas.Client) {
 	})
 
 	type startContainerInput struct {
-		ID int `json:"id" jsonschema:"required,Numeric container ID"`
+		Name string `json:"name" jsonschema:"required,App name (as shown in the TrueNAS UI)"`
 	}
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "start_container",
-		Description: "Start a Docker container by its numeric ID. Returns the async job ID immediately (non-blocking).",
+		Description: "Start a Docker container by its app name. Returns the async job ID immediately (non-blocking).",
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p startContainerInput) (*mcp.CallToolResult, any, error) {
-		jobID, err := client.StartContainer(ctx, p.ID)
+		jobID, err := client.StartContainer(ctx, p.Name)
 		if err != nil {
 			return nil, nil, fmt.Errorf("start_container: %w", err)
 		}
@@ -54,14 +54,14 @@ func registerContainerTools(s *mcp.Server, client *truenas.Client) {
 	})
 
 	type stopContainerInput struct {
-		ID int `json:"id" jsonschema:"required,Numeric container ID"`
+		Name string `json:"name" jsonschema:"required,App name (as shown in the TrueNAS UI)"`
 	}
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "stop_container",
-		Description: "Stop a running Docker container by its numeric ID. Returns the async job ID immediately (non-blocking).",
+		Description: "Stop a running Docker container by its app name. Returns the async job ID immediately (non-blocking).",
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p stopContainerInput) (*mcp.CallToolResult, any, error) {
-		jobID, err := client.StopContainer(ctx, p.ID)
+		jobID, err := client.StopContainer(ctx, p.Name)
 		if err != nil {
 			return nil, nil, fmt.Errorf("stop_container: %w", err)
 		}
@@ -69,14 +69,14 @@ func registerContainerTools(s *mcp.Server, client *truenas.Client) {
 	})
 
 	type restartContainerInput struct {
-		ID int `json:"id" jsonschema:"required,Numeric container ID"`
+		Name string `json:"name" jsonschema:"required,App name (as shown in the TrueNAS UI)"`
 	}
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "restart_container",
-		Description: "Restart a Docker container by its numeric ID. Returns the async job ID immediately (non-blocking).",
+		Description: "Restart a Docker container by its app name. Returns the async job ID immediately (non-blocking).",
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p restartContainerInput) (*mcp.CallToolResult, any, error) {
-		jobID, err := client.RestartContainer(ctx, p.ID)
+		jobID, err := client.RestartContainer(ctx, p.Name)
 		if err != nil {
 			return nil, nil, fmt.Errorf("restart_container: %w", err)
 		}
