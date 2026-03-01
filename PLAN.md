@@ -168,28 +168,41 @@ truenas_mcp/
 
 ---
 
-### Phase 4 — Docker Containers
+### Phase 4 — TrueNAS Apps (Docker Containers)
 
-**Goal**: Manage Docker containers and images directly — a lighter-weight deployment
-option than full VMs for running services like PBS on the NAS itself.
+**Goal**: Manage TrueNAS Apps — catalog-based and custom Docker Compose applications.
 
-TrueNAS SCALE 25.x exposes Docker container management via `/container/image` and
-`/container/container` — distinct from the catalog Apps in Phase 5, which are
-pre-packaged Docker Compose stacks.
+TrueNAS SCALE 25.10 removed the legacy `/container/container` service. Apps are now
+managed exclusively via the `/app` endpoint. Catalog apps install from the TrueNAS app
+catalog (`catalog_app` + `train` + `version`); custom apps accept a raw Docker Compose
+config (`custom_compose_config_string`).
+
+#### Phase 4a — Read + Lifecycle (✅ PR #5)
 
 **Tasks**:
-- [ ] `internal/truenas/container.go` — list containers, get container, create container,
-  start/stop/restart/delete container; list images, pull image
+- [x] `internal/truenas/container.go` — list containers, get container,
+  start/stop/restart container; list images
+- [x] `internal/truenas/container_test.go`
+- [x] `tools/container.go` — `list_containers`, `get_container`,
+  `start_container`, `stop_container`, `restart_container`, `list_images`
+- [x] Update README
+
+**Tools delivered (6)**:
+`list_containers`, `get_container`, `start_container`, `stop_container`,
+`restart_container`, `list_images`
+
+#### Phase 4b — Create + Delete
+
+**Tasks**:
+- [ ] `internal/truenas/container.go` — `CreateContainer` (catalog + custom compose),
+  `DeleteContainer`
 - [ ] `internal/truenas/container_test.go`
-- [ ] `tools/container.go` — `list_containers`, `get_container`, `create_container`,
-  `start_container`, `stop_container`, `restart_container`, `list_images`, `pull_image`
+- [ ] `tools/container.go` — `create_container` (catalog), `create_custom_container`
 - [ ] `tools/destructive.go` — opt-in `delete_container`
 - [ ] Update README
 
-**Tools delivered** (~9):
-`list_containers`, `get_container`, `create_container`, `start_container`,
-`stop_container`, `restart_container`, `list_images`, `pull_image`,
-`delete_container` (destructive)
+**Tools to deliver (~3)**:
+`create_container`, `create_custom_container`, `delete_container` (destructive)
 
 ---
 
