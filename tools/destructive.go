@@ -23,6 +23,7 @@ func registerDestructiveTools(s *mcp.Server, client *truenas.Client) {
 		Name:        "delete_vm",
 		Description: "Permanently delete a virtual machine by ID. The VM must be stopped first. Set confirmed=true to proceed.",
 		Annotations: &mcp.ToolAnnotations{
+			ReadOnlyHint:    false,
 			DestructiveHint: &destructiveHint,
 		},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p deleteVMInput) (*mcp.CallToolResult, any, error) {

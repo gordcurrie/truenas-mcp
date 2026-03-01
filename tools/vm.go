@@ -144,7 +144,7 @@ func registerVMTools(s *mcp.Server, client *truenas.Client) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "update_vm",
-		Description: "Update configuration of an existing VM by ID. Only supplied fields are changed; omitted fields are left as-is. Returns the updated VM.",
+		Description: "Update configuration of an existing VM by ID. Only fields with non-zero/non-empty values are applied; fields left unset or set to their zero value are ignored and remain unchanged. Clearing a field to empty string or 0 is not supported. Returns the updated VM.",
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p updateVMInput) (*mcp.CallToolResult, any, error) {
 		vm, err := client.UpdateVM(ctx, p.ID, &truenas.UpdateVMParams{

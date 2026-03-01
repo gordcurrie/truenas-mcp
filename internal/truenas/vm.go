@@ -151,6 +151,12 @@ func (c *Client) UpdateVM(ctx context.Context, id int, params *UpdateVMParams) (
 	if params == nil {
 		return nil, fmt.Errorf("updating VM %d: params must not be nil", id)
 	}
+	if params.Name != "" && !vmNameRe.MatchString(params.Name) {
+		return nil, fmt.Errorf("updating VM %d: name must contain only alphanumeric characters", id)
+	}
+	if params.Memory < 0 {
+		return nil, fmt.Errorf("updating VM %d: memory must be greater than 0 when provided", id)
+	}
 	var vm VM
 	if err := c.put(ctx, fmt.Sprintf("/vm/id/%d", id), params, &vm); err != nil {
 		return nil, fmt.Errorf("updating VM %d: %w", id, err)

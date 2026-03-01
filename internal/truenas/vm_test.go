@@ -233,7 +233,6 @@ func TestCreateVM_validationErrors(t *testing.T) {
 		{"invalid name with hyphen", CreateVMParams{Name: "test-vm", Memory: 4096}},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			_, err := c.CreateVM(context.Background(), &tt.params)
@@ -277,6 +276,32 @@ func TestUpdateVM_success(t *testing.T) {
 	}
 	if got.Memory != updated.Memory {
 		t.Errorf("Memory = %d, want %d", got.Memory, updated.Memory)
+	}
+}
+
+func TestUpdateVM_validationErrors(t *testing.T) {
+	t.Parallel()
+
+	c, err := NewClient("http://localhost:19999", "test-api-key", false) //nolint:gosec // G101: test-api-key is a fake placeholder
+	if err != nil {
+		t.Fatalf("NewClient: %v", err)
+	}
+
+	tests := []struct {
+		name   string
+		params UpdateVMParams
+	}{
+		{"invalid name with hyphen", UpdateVMParams{Name: "test-vm"}},
+		{"negative memory", UpdateVMParams{Memory: -1}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			_, err := c.UpdateVM(context.Background(), 1, &tt.params)
+			if err == nil {
+				t.Errorf("expected error for %s, got nil", tt.name)
+			}
+		})
 	}
 }
 
