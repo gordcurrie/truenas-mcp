@@ -295,6 +295,30 @@ func TestCreateContainer_validation(t *testing.T) {
 	}
 }
 
+func TestDeleteContainer_validation(t *testing.T) {
+	t.Parallel()
+
+	c := newTestClient(t, "http://localhost") // no server needed — validation is local
+
+	tests := []struct {
+		name    string
+		appName string
+	}{
+		{"empty name", ""},
+		{"name too long", "a123456789012345678901234567890123456789x"},
+		{"invalid chars", "My_App"},
+		{"starts with hyphen", "-bad"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			if err := c.DeleteContainer(context.Background(), tc.appName); err == nil {
+				t.Fatal("expected error, got nil")
+			}
+		})
+	}
+}
+
 func TestDeleteContainer_success(t *testing.T) {
 	t.Parallel()
 

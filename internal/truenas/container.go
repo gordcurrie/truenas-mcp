@@ -106,7 +106,7 @@ type CreateContainerParams struct {
 	Values map[string]any `json:"values,omitempty"`
 }
 
-// CreateContainer installs a new TrueNAS app and returns the created container once the
+// CreateContainer starts installing a new TrueNAS app and returns the async job ID once the
 // job is accepted. The returned job ID can be polled for completion using PollJob.
 func (c *Client) CreateContainer(ctx context.Context, params *CreateContainerParams) (int, error) {
 	if params == nil {
@@ -137,6 +137,15 @@ func (c *Client) CreateContainer(ctx context.Context, params *CreateContainerPar
 
 // DeleteContainer permanently removes the named app from TrueNAS SCALE.
 func (c *Client) DeleteContainer(ctx context.Context, name string) error {
+	if name == "" {
+		return fmt.Errorf("deleting container: name must not be empty")
+	}
+	if len(name) > 40 {
+		return fmt.Errorf("deleting container: name must not exceed 40 characters")
+	}
+	if !appNameRe.MatchString(name) {
+		return fmt.Errorf("deleting container: name must match ^[a-z]([-a-z0-9]*[a-z0-9])?$")
+	}
 	if err := c.delete(ctx, "/app/id/"+url.PathEscape(name), nil); err != nil {
 		return fmt.Errorf("deleting container %q: %w", name, err)
 	}
