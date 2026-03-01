@@ -403,14 +403,18 @@ func TestUpgradeApp_validation(t *testing.T) {
 func TestGetUpgradeSummary_success(t *testing.T) {
 	t.Parallel()
 
+	changelog := "Bug fixes."
 	summary := AppUpgradeSummary{
-		UpgradeAvailable: true,
-		LatestVersion:    "2.0.0",
-		Changelog:        "Bug fixes.",
+		LatestVersion:               "2.0.0",
+		LatestHumanVersion:          "2.0.0_1.0.0",
+		UpgradeVersion:              "2.0.0",
+		UpgradeHumanVersion:         "2.0.0_1.0.0",
+		AvailableVersionsForUpgrade: []AppVersionInfo{{Version: "2.0.0", HumanVersion: "2.0.0_1.0.0"}},
+		Changelog:                   &changelog,
 	}
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet || r.URL.Path != "/app/id/my-app/upgrade_summary" {
+		if r.Method != http.MethodPost || r.URL.Path != "/app/id/my-app/upgrade_summary" {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
@@ -426,11 +430,14 @@ func TestGetUpgradeSummary_success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetUpgradeSummary: %v", err)
 	}
-	if !got.UpgradeAvailable {
-		t.Errorf("UpgradeAvailable = false, want true")
-	}
 	if got.LatestVersion != "2.0.0" {
 		t.Errorf("LatestVersion = %q, want %q", got.LatestVersion, "2.0.0")
+	}
+	if got.Changelog == nil || *got.Changelog != "Bug fixes." {
+		t.Errorf("Changelog = %v, want %q", got.Changelog, "Bug fixes.")
+	}
+	if len(got.AvailableVersionsForUpgrade) != 1 {
+		t.Errorf("AvailableVersionsForUpgrade len = %d, want 1", len(got.AvailableVersionsForUpgrade))
 	}
 }
 

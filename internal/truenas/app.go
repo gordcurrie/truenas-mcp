@@ -50,11 +50,20 @@ type AppUpgradeParams struct {
 	AppVersion string `json:"app_version,omitempty"`
 }
 
-// AppUpgradeSummary contains upgrade availability information for an installed app.
+// AppVersionInfo holds a version and its human-readable label.
+type AppVersionInfo struct {
+	Version      string `json:"version"`
+	HumanVersion string `json:"human_version"`
+}
+
+// AppUpgradeSummary holds the result of app.upgrade_summary (AppUpgradeSummaryResult).
 type AppUpgradeSummary struct {
-	UpgradeAvailable bool   `json:"upgrade_available"`
-	LatestVersion    string `json:"latest_version"`
-	Changelog        string `json:"changelog"`
+	LatestVersion               string           `json:"latest_version"`
+	LatestHumanVersion          string           `json:"latest_human_version"`
+	UpgradeVersion              string           `json:"upgrade_version"`
+	UpgradeHumanVersion         string           `json:"upgrade_human_version"`
+	AvailableVersionsForUpgrade []AppVersionInfo `json:"available_versions_for_upgrade"`
+	Changelog                   *string          `json:"changelog"`
 }
 
 // ListApps returns all installed apps on the TrueNAS SCALE system.
@@ -184,13 +193,14 @@ func (c *Client) UpgradeApp(ctx context.Context, name, version string) (int, err
 	return jobID, nil
 }
 
-// GetUpgradeSummary retrieves upgrade availability and changelog for the named app.
+// GetUpgradeSummary retrieves the upgrade summary for the named app.
+// It posts {app_version: "latest"} to /app/id/{name}/upgrade_summary as required by the API.
 func (c *Client) GetUpgradeSummary(ctx context.Context, name string) (*AppUpgradeSummary, error) {
 	if err := validateAppName(name, "name"); err != nil {
 		return nil, err
 	}
 	var summary AppUpgradeSummary
-	if err := c.get(ctx, "/app/id/"+url.PathEscape(name)+"/upgrade_summary", &summary); err != nil {
+	if err := c.postWithBody(ctx, "/app/id/"+url.PathEscape(name)+"/upgrade_summary", &AppUpgradeParams{AppVersion: "latest"}, &summary); err != nil {
 		return nil, fmt.Errorf("getting upgrade summary for app %q: %w", name, err)
 	}
 	return &summary, nil
