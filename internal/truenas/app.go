@@ -13,16 +13,16 @@ import (
 var appNameRe = regexp.MustCompile(`^[a-z]([-a-z0-9]*[a-z0-9])?$`)
 
 // validateAppName checks that name is non-empty, ≤40 chars, and matches appNameRe.
-// op is the verb phrase used in error messages (e.g. "deleting app").
-func validateAppName(name, op string) error {
+// field is the parameter name used in error messages (e.g. "app_name", "name").
+func validateAppName(name, field string) error {
 	if name == "" {
-		return fmt.Errorf("%s: name must not be empty", op)
+		return fmt.Errorf("%s: must not be empty", field)
 	}
 	if len(name) > 40 {
-		return fmt.Errorf("%s: name must not exceed 40 characters", op)
+		return fmt.Errorf("%s: must not exceed 40 characters", field)
 	}
 	if !appNameRe.MatchString(name) {
-		return fmt.Errorf("%s: name must match ^[a-z]([-a-z0-9]*[a-z0-9])?$", op)
+		return fmt.Errorf("%s: must match ^[a-z]([-a-z0-9]*[a-z0-9])?$", field)
 	}
 	return nil
 }
@@ -143,7 +143,7 @@ func (c *Client) CreateApp(ctx context.Context, params *CreateAppParams) (int, e
 	if params == nil {
 		return 0, fmt.Errorf("creating app: params must not be nil")
 	}
-	if err := validateAppName(params.AppName, "creating app"); err != nil {
+	if err := validateAppName(params.AppName, "app_name"); err != nil {
 		return 0, err
 	}
 	if !params.CustomApp && params.CatalogApp == "" {
@@ -162,7 +162,7 @@ func (c *Client) CreateApp(ctx context.Context, params *CreateAppParams) (int, e
 
 // DeleteApp permanently removes the named app from TrueNAS SCALE.
 func (c *Client) DeleteApp(ctx context.Context, name string) error {
-	if err := validateAppName(name, "deleting app"); err != nil {
+	if err := validateAppName(name, "name"); err != nil {
 		return err
 	}
 	if err := c.delete(ctx, "/app/id/"+url.PathEscape(name), nil); err != nil {
@@ -174,7 +174,7 @@ func (c *Client) DeleteApp(ctx context.Context, name string) error {
 // UpgradeApp upgrades the named app to the given version, or to the latest available
 // version when version is empty. Returns the async job ID.
 func (c *Client) UpgradeApp(ctx context.Context, name, version string) (int, error) {
-	if err := validateAppName(name, "upgrading app"); err != nil {
+	if err := validateAppName(name, "name"); err != nil {
 		return 0, err
 	}
 	var jobID int
@@ -186,7 +186,7 @@ func (c *Client) UpgradeApp(ctx context.Context, name, version string) (int, err
 
 // GetUpgradeSummary retrieves upgrade availability and changelog for the named app.
 func (c *Client) GetUpgradeSummary(ctx context.Context, name string) (*AppUpgradeSummary, error) {
-	if err := validateAppName(name, "getting upgrade summary"); err != nil {
+	if err := validateAppName(name, "name"); err != nil {
 		return nil, err
 	}
 	var summary AppUpgradeSummary
@@ -199,7 +199,7 @@ func (c *Client) GetUpgradeSummary(ctx context.Context, name string) (*AppUpgrad
 // RollbackApp rolls the named app back to the specified previous version.
 // Returns the async job ID.
 func (c *Client) RollbackApp(ctx context.Context, name, version string) (int, error) {
-	if err := validateAppName(name, "rolling back app"); err != nil {
+	if err := validateAppName(name, "name"); err != nil {
 		return 0, err
 	}
 	if version == "" {
