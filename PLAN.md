@@ -317,7 +317,7 @@ tooling — just download a binary and configure `mcp.json`.
 
 - [x] `ci.yml` passes on `main` for both repos
 - [x] `release.yml` produces binaries on a `v*` tag for both repos
-- [ ] README installation section complete for both repos
+- [x] README installation section complete for both repos
 
 ---
 
