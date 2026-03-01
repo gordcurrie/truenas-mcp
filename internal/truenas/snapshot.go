@@ -47,14 +47,14 @@ type RollbackSnapshotParams struct {
 // snapshotIDPath returns the URL path for a snapshot ID resource.
 // id is the full "dataset@snapname" identifier.
 func snapshotIDPath(id string) string {
-	return "/zfs/snapshot/id/" + url.PathEscape(id)
+	return "/pool/snapshot/id/" + url.PathEscape(id)
 }
 
 // ListSnapshots returns all ZFS snapshots visible to the API.
 // If dataset is non-empty, only snapshots whose Dataset field matches are returned.
 func (c *Client) ListSnapshots(ctx context.Context, dataset string) ([]Snapshot, error) {
 	var snapshots []Snapshot
-	if err := c.get(ctx, "/zfs/snapshot", &snapshots); err != nil {
+	if err := c.get(ctx, "/pool/snapshot", &snapshots); err != nil {
 		return nil, fmt.Errorf("listing snapshots: %w", err)
 	}
 
@@ -98,7 +98,7 @@ func (c *Client) CreateSnapshot(ctx context.Context, params CreateSnapshotParams
 	}
 
 	var snap Snapshot
-	if err := c.postWithBody(ctx, "/zfs/snapshot", params, &snap); err != nil {
+	if err := c.postWithBody(ctx, "/pool/snapshot", params, &snap); err != nil {
 		return nil, fmt.Errorf("creating snapshot %q@%q: %w", params.Dataset, params.Name, err)
 	}
 	return &snap, nil

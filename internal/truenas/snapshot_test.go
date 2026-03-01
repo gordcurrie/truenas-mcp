@@ -21,7 +21,7 @@ func TestListSnapshots_success(t *testing.T) {
 	}
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/zfs/snapshot" {
+		if r.URL.Path != "/pool/snapshot" {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
@@ -54,7 +54,7 @@ func TestListSnapshots_filterByDataset(t *testing.T) {
 	}
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/zfs/snapshot" {
+		if r.URL.Path != "/pool/snapshot" {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
@@ -90,7 +90,7 @@ func TestGetSnapshot_success(t *testing.T) {
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Go's HTTP server decodes %2F to / in r.URL.Path; check the decoded form.
-		if r.URL.Path != "/zfs/snapshot/id/Storage/backups@before-upgrade" {
+		if r.URL.Path != "/pool/snapshot/id/Storage/backups@before-upgrade" {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
@@ -144,7 +144,7 @@ func TestCreateSnapshot_success(t *testing.T) {
 	}
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost || r.URL.Path != "/zfs/snapshot" {
+		if r.Method != http.MethodPost || r.URL.Path != "/pool/snapshot" {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
@@ -204,7 +204,7 @@ func TestRollbackSnapshot_success(t *testing.T) {
 	t.Parallel()
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost || r.URL.Path != "/zfs/snapshot/id/Storage/backups@before-upgrade/rollback" {
+		if r.Method != http.MethodPost || r.URL.Path != "/pool/snapshot/id/Storage/backups@before-upgrade/rollback" {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
@@ -247,7 +247,7 @@ func TestDeleteSnapshot_success(t *testing.T) {
 	t.Parallel()
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodDelete || r.URL.Path != "/zfs/snapshot/id/Storage/backups@before-upgrade" {
+		if r.Method != http.MethodDelete || r.URL.Path != "/pool/snapshot/id/Storage/backups@before-upgrade" {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
