@@ -18,5 +18,7 @@ func RegisterAll(s *mcp.Server, client *truenas.Client, cfg Config) {
 	registerPoolTools(s, client)
 	registerDatasetTools(s, client)
 	registerVMTools(s, client)
-	_ = cfg
+	if cfg.AllowDestructive {
+		registerDestructiveTools(s, client)
+	}
 }

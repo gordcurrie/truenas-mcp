@@ -157,18 +157,43 @@ truenas_mcp/
 **Tasks**:
 - [x] `internal/truenas/jobs.go` — async job type + PollJob helper
 - [x] `internal/truenas/vm.go` (3a) — list VMs, get VM, start/stop/restart VM
-- [ ] `internal/truenas/vm.go` (3b) — create VM, update VM
+- [x] `internal/truenas/vm.go` (3b) — create VM, update VM, delete VM
 - [x] `tools/vm.go` (3a) — `list_vms`, `get_vm`, `start_vm`, `stop_vm`, `restart_vm`
-- [ ] `tools/vm.go` (3b) — `create_vm`, `update_vm`
-- [ ] `tools/destructive.go` — opt-in `delete_vm`
-- [x] Update README (3a)
+- [x] `tools/vm.go` (3b) — `create_vm`, `update_vm`
+- [x] `tools/destructive.go` — opt-in `delete_vm`
+- [x] Update README (3a + 3b)
 
 **Tools delivered** (~8):
 `list_vms`, `get_vm`, `create_vm`, `update_vm`, `start_vm`, `stop_vm`, `restart_vm`, `delete_vm` (destructive)
 
 ---
 
-### Phase 4 — ZFS Snapshots
+### Phase 4 — Docker Containers
+
+**Goal**: Manage Docker containers and images directly — a lighter-weight deployment
+option than full VMs for running services like PBS on the NAS itself.
+
+TrueNAS SCALE 25.x exposes Docker container management via `/container/image` and
+`/container/container` — distinct from the catalog Apps in Phase 5, which are
+pre-packaged Docker Compose stacks.
+
+**Tasks**:
+- [ ] `internal/truenas/container.go` — list containers, get container, create container,
+  start/stop/restart/delete container; list images, pull image
+- [ ] `internal/truenas/container_test.go`
+- [ ] `tools/container.go` — `list_containers`, `get_container`, `create_container`,
+  `start_container`, `stop_container`, `restart_container`, `list_images`, `pull_image`
+- [ ] `tools/destructive.go` — opt-in `delete_container`
+- [ ] Update README
+
+**Tools delivered** (~9):
+`list_containers`, `get_container`, `create_container`, `start_container`,
+`stop_container`, `restart_container`, `list_images`, `pull_image`,
+`delete_container` (destructive)
+
+---
+
+### Phase 5 — ZFS Snapshots
 
 **Goal**: Create, list, roll back, and delete snapshots — useful for pre-backup snapshotting.
 
@@ -183,10 +208,10 @@ truenas_mcp/
 
 ---
 
-### Phase 5 — TrueNAS Apps
+### Phase 6 — TrueNAS Apps
 
-**Goal**: Manage catalog apps (Helm-based) — useful for deploying containerised workloads
-like PBS if a native app becomes available.
+**Goal**: Manage catalog apps (Docker Compose–based) — useful for deploying packaged
+workloads like PBS if a native app becomes available.
 
 **Tasks**:
 - [ ] `internal/truenas/app.go` — list apps, get app, install app, start/stop app, delete app
@@ -199,7 +224,7 @@ like PBS if a native app becomes available.
 
 ---
 
-### Phase 6 — PBS Provisioning Workflow (the target use case)
+### Phase 7 — PBS Provisioning Workflow (the target use case)
 
 **Goal**: End-to-end automated PBS setup driven by an AI agent across both MCPs.
 
@@ -207,8 +232,8 @@ This isn't a new tool — it's a validation that the existing tools compose corr
 accomplish the full workflow:
 
 1. `create_dataset` (truenas-mcp) — create `tank/proxmox-backups`
-2. `create_vm` (truenas-mcp) — Debian 12 VM, 2 vCPU, 4GB RAM, 32GB disk, NIC on LAN
-3. `start_vm` (truenas-mcp) — boot the VM
+2. `create_vm` or `create_container` (truenas-mcp) — Debian 12 VM or lightweight container
+3. `start_vm` / `start_container` (truenas-mcp) — boot the instance
 4. *(manual step)* — install PBS inside the guest via SSH / console
 5. `add_storage` (proxmox-mcp — future tool) — register PBS as backup target
 6. `create_backup_job` (proxmox-mcp — future tool) — schedule all VMs nightly
@@ -224,9 +249,44 @@ Document this workflow in README as a worked example.
 | 1 — Foundation | 2 | 2 |
 | 2 — Pools & Datasets | 5 | 7 |
 | 3 — VMs | 8 | 15 |
-| 4 — Snapshots | 4 | 19 |
-| 5 — Apps | 6 | 25 |
-| 6 — PBS Workflow | 0 (validation) | 25 |
+| 4 — Docker Containers | 9 | 24 |
+| 5 — Snapshots | 4 | 28 |
+| 6 — Apps | 6 | 34 |
+| 7 — PBS Workflow | 0 (validation) | 34 |
+| 8 — CI & Releases | 0 | 34 |
+
+---
+
+## Phase 8 — CI & Releases (both repos)
+
+Prerequisite: all feature phases merged and repos made public.
+
+### Goals
+
+Make both `truenas-mcp` and `proxmox-mcp` consumable by non-Go users with zero build
+tooling — just download a binary and configure `mcp.json`.
+
+### GitHub Actions Workflows (per repo)
+
+**`.github/workflows/ci.yml`** — runs on every push and PR to `main`:
+- `make check` (fix, fmt, vet, lint, sec, vulncheck, test -race, build)
+
+**`.github/workflows/release.yml`** — runs on `v*` tag push:
+- Cross-compile for: `linux/amd64`, `linux/arm64`, `darwin/amd64`, `darwin/arm64`, `windows/amd64`
+- Upload binaries to GitHub Release (created automatically by the workflow)
+- Binary naming convention: `<name>_<os>_<arch>[.exe]`
+
+### README Updates (per repo)
+
+- Add **Installation** section: download binary from Releases page
+- Add **VS Code `mcp.json`** usage snippet with env var instructions
+- Add **Building from source** section for Go users
+
+### Definition of Done
+
+- [ ] `ci.yml` passes on `main` for both repos
+- [ ] `release.yml` produces binaries on a `v*` tag for both repos
+- [ ] README installation section complete for both repos
 
 ---
 

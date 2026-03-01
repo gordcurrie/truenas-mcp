@@ -175,3 +175,165 @@ func TestRestartVM_success(t *testing.T) {
 		t.Errorf("jobID = %d, want 44", jobID)
 	}
 }
+
+func TestCreateVM_success(t *testing.T) {
+	t.Parallel()
+
+	created := VM{
+		ID:     2,
+		Name:   "pbs",
+		VCPUs:  2,
+		Memory: 4096,
+		Status: VMStatus{State: "STOPPED"},
+	}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/vm" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(created); err != nil {
+			t.Errorf("encoding response: %v", err)
+		}
+	}))
+	defer srv.Close()
+
+	c := newTestClient(t, srv.URL)
+	got, err := c.CreateVM(context.Background(), &CreateVMParams{
+		Name:   "pbs",
+		VCPUs:  2,
+		Memory: 4096,
+	})
+	if err != nil {
+		t.Fatalf("CreateVM: %v", err)
+	}
+	if got.ID != created.ID {
+		t.Errorf("ID = %d, want %d", got.ID, created.ID)
+	}
+	if got.Name != created.Name {
+		t.Errorf("Name = %q, want %q", got.Name, created.Name)
+	}
+}
+
+func TestCreateVM_validationErrors(t *testing.T) {
+	t.Parallel()
+
+	c, err := NewClient("http://localhost:19999", "test-api-key", false) //nolint:gosec // G101: test-api-key is a fake placeholder
+	if err != nil {
+		t.Fatalf("NewClient: %v", err)
+	}
+
+	tests := []struct {
+		name   string
+		params CreateVMParams
+	}{
+		{"empty name", CreateVMParams{Memory: 4096}},
+		{"zero memory", CreateVMParams{Name: "pbs"}},
+		{"invalid name with hyphen", CreateVMParams{Name: "test-vm", Memory: 4096}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			_, err := c.CreateVM(context.Background(), &tt.params)
+			if err == nil {
+				t.Errorf("expected error for %s, got nil", tt.name)
+			}
+		})
+	}
+}
+
+func TestUpdateVM_success(t *testing.T) {
+	t.Parallel()
+
+	updated := VM{
+		ID:     1,
+		Name:   "pbs",
+		VCPUs:  4,
+		Memory: 8192,
+		Status: VMStatus{State: "STOPPED"},
+	}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPut || r.URL.Path != "/vm/id/1" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(updated); err != nil {
+			t.Errorf("encoding response: %v", err)
+		}
+	}))
+	defer srv.Close()
+
+	c := newTestClient(t, srv.URL)
+	got, err := c.UpdateVM(context.Background(), 1, &UpdateVMParams{VCPUs: 4, Memory: 8192})
+	if err != nil {
+		t.Fatalf("UpdateVM: %v", err)
+	}
+	if got.VCPUs != updated.VCPUs {
+		t.Errorf("VCPUs = %d, want %d", got.VCPUs, updated.VCPUs)
+	}
+	if got.Memory != updated.Memory {
+		t.Errorf("Memory = %d, want %d", got.Memory, updated.Memory)
+	}
+}
+
+func TestUpdateVM_validationErrors(t *testing.T) {
+	t.Parallel()
+
+	c, err := NewClient("http://localhost:19999", "test-api-key", false) //nolint:gosec // G101: test-api-key is a fake placeholder
+	if err != nil {
+		t.Fatalf("NewClient: %v", err)
+	}
+
+	tests := []struct {
+		name   string
+		params UpdateVMParams
+	}{
+		{"invalid name with hyphen", UpdateVMParams{Name: "test-vm"}},
+		{"negative memory", UpdateVMParams{Memory: -1}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			_, err := c.UpdateVM(context.Background(), 1, &tt.params)
+			if err == nil {
+				t.Errorf("expected error for %s, got nil", tt.name)
+			}
+		})
+	}
+}
+
+func TestDeleteVM_success(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodDelete || r.URL.Path != "/vm/id/1" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	c := newTestClient(t, srv.URL)
+	if err := c.DeleteVM(context.Background(), 1); err != nil {
+		t.Fatalf("DeleteVM: %v", err)
+	}
+}
+
+func TestDeleteVM_notFound(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer srv.Close()
+
+	c := newTestClient(t, srv.URL)
+	err := c.DeleteVM(context.Background(), 99)
+	if !errors.Is(err, ErrNotFound) {
+		t.Errorf("expected ErrNotFound, got %v", err)
+	}
+}

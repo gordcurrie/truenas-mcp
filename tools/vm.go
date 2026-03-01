@@ -89,4 +89,79 @@ func registerVMTools(s *mcp.Server, client *truenas.Client) {
 		}
 		return jsonResult(map[string]int{"job_id": jobID})
 	})
+
+	type createVMInput struct {
+		Name            string `json:"name"                       jsonschema:"required,VM name (alphanumeric characters only; hyphens and special characters are not allowed)"`
+		Memory          int    `json:"memory"                     jsonschema:"required,RAM in MiB (e.g. 4096 for 4 GiB)"`
+		Description     string `json:"description,omitempty"      jsonschema:"Optional description"`
+		VCPUs           int    `json:"vcpus,omitempty"            jsonschema:"Total virtual CPU count; defaults to 1"`
+		Bootloader      string `json:"bootloader,omitempty"       jsonschema:"UEFI (default), UEFI_CSM, or GRUB"`
+		Autostart       bool   `json:"autostart,omitempty"        jsonschema:"Start VM automatically with the system"`
+		Cores           int    `json:"cores,omitempty"            jsonschema:"Cores per socket"`
+		Threads         int    `json:"threads,omitempty"          jsonschema:"Threads per core"`
+		ShutdownTimeout int    `json:"shutdown_timeout,omitempty" jsonschema:"Seconds to wait before force-killing on shutdown"`
+		CPUMode         string `json:"cpu_mode,omitempty"         jsonschema:"CUSTOM, HOST-MODEL, or HOST-PASSTHROUGH"`
+		CPUModel        string `json:"cpu_model,omitempty"        jsonschema:"CPU model name; only used when cpu_mode=CUSTOM"`
+	}
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "create_vm",
+		Description: "Create a new virtual machine. At minimum provide name and memory (in MiB). Returns the created VM. Note: VM names must be alphanumeric only — hyphens, underscores, and other special characters are not allowed.",
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false},
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, p createVMInput) (*mcp.CallToolResult, any, error) {
+		vm, err := client.CreateVM(ctx, &truenas.CreateVMParams{
+			Name:            p.Name,
+			Memory:          p.Memory,
+			Description:     p.Description,
+			VCPUs:           p.VCPUs,
+			Bootloader:      p.Bootloader,
+			Autostart:       p.Autostart,
+			Cores:           p.Cores,
+			Threads:         p.Threads,
+			ShutdownTimeout: p.ShutdownTimeout,
+			CPUMode:         p.CPUMode,
+			CPUModel:        p.CPUModel,
+		})
+		if err != nil {
+			return nil, nil, fmt.Errorf("create_vm: %w", err)
+		}
+		return jsonResult(vm)
+	})
+
+	type updateVMInput struct {
+		ID              int    `json:"id"                         jsonschema:"required,Numeric VM ID"`
+		Name            string `json:"name,omitempty"             jsonschema:"New VM name"`
+		Description     string `json:"description,omitempty"      jsonschema:"New description"`
+		VCPUs           int    `json:"vcpus,omitempty"            jsonschema:"New total virtual CPU count"`
+		Memory          int    `json:"memory,omitempty"           jsonschema:"New RAM in MiB"`
+		Bootloader      string `json:"bootloader,omitempty"       jsonschema:"UEFI, UEFI_CSM, or GRUB"`
+		Cores           int    `json:"cores,omitempty"            jsonschema:"Cores per socket"`
+		Threads         int    `json:"threads,omitempty"          jsonschema:"Threads per core"`
+		ShutdownTimeout int    `json:"shutdown_timeout,omitempty" jsonschema:"Seconds before force-kill on shutdown"`
+		CPUMode         string `json:"cpu_mode,omitempty"         jsonschema:"CUSTOM, HOST-MODEL, or HOST-PASSTHROUGH"`
+		CPUModel        string `json:"cpu_model,omitempty"        jsonschema:"CPU model; only used when cpu_mode=CUSTOM"`
+	}
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "update_vm",
+		Description: "Update configuration of an existing VM by ID. Only fields with non-zero/non-empty values are applied; fields left unset or set to their zero value are ignored and remain unchanged. Clearing a field to empty string or 0 is not supported. Returns the updated VM.",
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false},
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, p updateVMInput) (*mcp.CallToolResult, any, error) {
+		vm, err := client.UpdateVM(ctx, p.ID, &truenas.UpdateVMParams{
+			Name:            p.Name,
+			Description:     p.Description,
+			VCPUs:           p.VCPUs,
+			Memory:          p.Memory,
+			Bootloader:      p.Bootloader,
+			Cores:           p.Cores,
+			Threads:         p.Threads,
+			ShutdownTimeout: p.ShutdownTimeout,
+			CPUMode:         p.CPUMode,
+			CPUModel:        p.CPUModel,
+		})
+		if err != nil {
+			return nil, nil, fmt.Errorf("update_vm: %w", err)
+		}
+		return jsonResult(vm)
+	})
 }
