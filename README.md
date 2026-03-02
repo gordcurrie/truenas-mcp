@@ -31,6 +31,8 @@ An MCP server that exposes [TrueNAS SCALE](https://www.truenas.com/truenas-scale
 | `restart_vm` | Restart a VM; returns async job ID immediately | `id` (int) |
 | `create_vm` | Create a new VM; returns the created VM | `name`, `memory` (required); `vcpus`, `bootloader`, `autostart`, `cores`, `threads`, `cpu_mode`, `cpu_model`, `shutdown_timeout`, `description` (optional) |
 | `update_vm` | Update an existing VM configuration; omitted fields are unchanged | `id` (required); any subset of `name`, `memory`, `vcpus`, `bootloader`, `cores`, `threads`, `cpu_mode`, `cpu_model`, `shutdown_timeout`, `description` |
+| `list_vm_devices` | List all hardware devices attached to a VM (disks, CDROMs, NICs, displays) | `id` (int) |
+| `add_vm_device` | Attach a hardware device to a VM (DISK, CDROM, NIC, or DISPLAY) | `vm_id` (int), `dtype` (string), `attributes` (object); `order` (optional) |
 
 ### Apps
 
@@ -64,6 +66,7 @@ An MCP server that exposes [TrueNAS SCALE](https://www.truenas.com/truenas-scale
 | `delete_vm` | Permanently delete a stopped VM | `id` (int); `confirmed: true` (required) |
 | `delete_app` | Permanently delete a TrueNAS app | `name` (string); `confirmed: true` (required) |
 | `delete_snapshot` | Permanently delete a ZFS snapshot | `id` (string, e.g. `Storage/backups@before-upgrade`); `confirmed: true` (required) |
+| `delete_vm_device` | Remove a hardware device from a VM by device ID | `id` (int); `confirmed: true` (required) |
 
 ## Installation
 

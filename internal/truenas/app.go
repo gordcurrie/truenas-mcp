@@ -179,7 +179,7 @@ func (c *Client) DeleteApp(ctx context.Context, name string) error {
 	if err := validateAppName(name, "name"); err != nil {
 		return err
 	}
-	if err := c.delete(ctx, "/app/id/"+url.PathEscape(name), nil); err != nil {
+	if err := c.delete(ctx, "/app/id/"+url.PathEscape(name)); err != nil {
 		return fmt.Errorf("deleting app %q: %w", name, err)
 	}
 	return nil

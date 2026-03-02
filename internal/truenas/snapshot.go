@@ -122,7 +122,7 @@ func (c *Client) DeleteSnapshot(ctx context.Context, id string) error {
 		return fmt.Errorf("deleting snapshot: id must be in dataset@name form with non-empty dataset and name, got %q", id)
 	}
 
-	if err := c.delete(ctx, snapshotIDPath(id), nil); err != nil {
+	if err := c.delete(ctx, snapshotIDPath(id)); err != nil {
 		return fmt.Errorf("deleting snapshot %q: %w", id, err)
 	}
 	return nil

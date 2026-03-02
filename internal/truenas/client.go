@@ -108,9 +108,9 @@ func (c *Client) postWithBody(ctx context.Context, path string, body, result any
 	return c.decode(resp.Body, result)
 }
 
-// delete performs an authenticated DELETE request to path (relative to
-// baseURL) and decodes the response into result.
-func (c *Client) delete(ctx context.Context, path string, result any) error {
+// delete performs an authenticated DELETE request to path (relative to baseURL).
+// The response body is drained to io.Discard and closed to allow connection reuse.
+func (c *Client) delete(ctx context.Context, path string) error {
 	resp, err := c.do(ctx, http.MethodDelete, path, nil)
 	if err != nil {
 		return err
@@ -120,8 +120,9 @@ func (c *Client) delete(ctx context.Context, path string, result any) error {
 			slog.Warn("closing delete response body", "err", err)
 		}
 	}()
-
-	return c.decode(resp.Body, result)
+	// Drain the body (best-effort) so the underlying TCP connection can be reused.
+	_, _ = io.Copy(io.Discard, resp.Body)
+	return nil
 }
 
 // put performs an authenticated PUT request to path with body marshalled as
