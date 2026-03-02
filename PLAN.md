@@ -13,6 +13,7 @@ TrueNAS SCALE as part of the Proxmox backup workflow.
 |---|---|
 | 1–8 (Foundation through CI & Releases) | ✅ Complete — 32 tools shipped |
 | PR — VM Device Management | ✅ Complete — 35 tools shipped |
+| PR — Network, Filesystem & Zvol support | ✅ Complete — 38 tools shipped |
 | 9 — WebSocket API Migration | ⏳ Before TrueNAS v26.04 (~mid-2026) |
 | 10 — NFS Share Management | 🔜 Next (Proxmox backup workflow) |
 
@@ -81,6 +82,29 @@ Copilot caches the tool list per-connection; a stale connection from before the 
 added to the binary will not see it until the cache is cleared.
 
 **Tool count:** 32 + 3 = **35 tools**
+
+---
+
+## PR — Network, Filesystem & Zvol support ✅
+
+**Goal**: Add tools needed to configure a PBS VM — find the bridge interface for NIC
+attachment, check what ISOs exist in a directory, and create zvol block devices for VM
+disks.
+
+### New tools (3)
+
+| Tool | API endpoint | Description |
+|---|---|---|
+| `list_interfaces` | `GET /interface` | List all network interfaces (bridges, physical, bonds, VLANs) |
+| `list_directory` | `POST /filesystem/listdir` | List the contents of a directory on the TrueNAS host |
+
+### Enhanced tools (1)
+
+| Tool | Change |
+|---|---|
+| `create_dataset` | Added `volsize` parameter (required for `type=VOLUME` zvols) |
+
+**Tool count:** 35 + 2 = **37 tools**
 
 ---
 

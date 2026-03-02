@@ -156,7 +156,7 @@ func TestCreateDataset_success(t *testing.T) {
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
-	got, err := c.CreateDataset(context.Background(), CreateDatasetParams{
+	got, err := c.CreateDataset(context.Background(), &CreateDatasetParams{
 		Name: "Storage/backups",
 		Type: "FILESYSTEM",
 	})
@@ -176,8 +176,25 @@ func TestCreateDataset_emptyName(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewClient: %v", err)
 	}
-	_, err = c.CreateDataset(context.Background(), CreateDatasetParams{})
+	_, err = c.CreateDataset(context.Background(), &CreateDatasetParams{})
 	if err == nil {
 		t.Error("expected error for empty Name, got nil")
+	}
+}
+
+func TestCreateDataset_zvolMissingVolsize(t *testing.T) {
+	t.Parallel()
+
+	// No server needed — validation should fail before any HTTP call.
+	c, err := NewClient("http://localhost:19999", "test-api-key", false) //nolint:gosec // G101: test-api-key is a fake placeholder, not a real credential
+	if err != nil {
+		t.Fatalf("NewClient: %v", err)
+	}
+	_, err = c.CreateDataset(context.Background(), &CreateDatasetParams{
+		Name: "Storage/vm-disk",
+		Type: "VOLUME",
+	})
+	if err == nil {
+		t.Error("expected error for VOLUME type without volsize, got nil")
 	}
 }

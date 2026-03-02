@@ -10,6 +10,18 @@ An MCP server that exposes [TrueNAS SCALE](https://www.truenas.com/truenas-scale
 |---|---|---|
 | `get_system_info` | Get TrueNAS SCALE system info: version, hostname, CPU, memory, uptime, load | _(none)_ |
 
+### Network
+
+| Tool | Description | Parameters |
+|---|---|---|
+| `list_interfaces` | List all network interfaces (bridges, physical, bonds, VLANs) — useful for finding bridge names when attaching VM NICs | _(none)_ |
+
+### Filesystem
+
+| Tool | Description | Parameters |
+|---|---|---|
+| `list_directory` | List the contents of a directory on the TrueNAS host filesystem | `path` (string, required) |
+
 ### Storage
 
 | Tool | Description | Parameters |
@@ -18,7 +30,7 @@ An MCP server that exposes [TrueNAS SCALE](https://www.truenas.com/truenas-scale
 | `get_pool` | Get detailed information about a specific ZFS pool | `id` (int) |
 | `list_datasets` | List ZFS datasets and zvols, optionally filtered by pool | `pool` (string, optional) |
 | `get_dataset` | Get detailed information about a specific ZFS dataset or zvol by its full path | `id` (string, e.g. `Storage/backups`) |
-| `create_dataset` | Create a new ZFS dataset or zvol | `name` (string, required); `type`, `compression`, `comments`, `quota` (optional) |
+| `create_dataset` | Create a new ZFS dataset or zvol | `name` (required); `type`, `compression`, `comments`, `quota`, `volsize` (optional — `volsize` in bytes is required when `type=VOLUME`) |
 
 ### Virtual Machines
 
