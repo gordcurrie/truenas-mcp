@@ -47,6 +47,9 @@ type CreateDatasetParams struct {
 	// Quota is the maximum space (in bytes) allowed for this dataset and its
 	// children. Zero or omitted means no quota.
 	Quota int64 `json:"quota,omitempty"`
+	// Volsize is the size in bytes of the zvol block device. Required when
+	// Type is "VOLUME"; ignored for FILESYSTEM datasets.
+	Volsize int64 `json:"volsize,omitempty"`
 }
 
 // ListDatasets returns all ZFS datasets and zvols visible to the API.
@@ -84,9 +87,16 @@ func (c *Client) GetDataset(ctx context.Context, id string) (*Dataset, error) {
 
 // CreateDataset creates a new ZFS dataset with the provided parameters and
 // returns the newly created Dataset. The caller must supply at least params.Name.
-func (c *Client) CreateDataset(ctx context.Context, params CreateDatasetParams) (*Dataset, error) {
+// When creating a zvol (Type == "VOLUME"), Volsize must be a positive number of bytes.
+func (c *Client) CreateDataset(ctx context.Context, params *CreateDatasetParams) (*Dataset, error) {
+	if params == nil {
+		return nil, fmt.Errorf("creating dataset: params must not be nil")
+	}
 	if params.Name == "" {
 		return nil, fmt.Errorf("creating dataset: name must not be empty")
+	}
+	if params.Type == "VOLUME" && params.Volsize <= 0 {
+		return nil, fmt.Errorf("creating dataset: volsize must be a positive number of bytes when type is VOLUME")
 	}
 
 	var dataset Dataset

@@ -57,19 +57,22 @@ func registerDatasetTools(s *mcp.Server, client *truenas.Client) {
 		Comments string `json:"comments,omitempty" jsonschema:"Free-text description for the dataset"`
 		// Quota is the maximum space in bytes for this dataset and its children (0 = no quota).
 		Quota int64 `json:"quota,omitempty" jsonschema:"Maximum space in bytes (0 = no quota)"`
+		// Volsize is the size in bytes of the zvol block device. Required when type is VOLUME.
+		Volsize int64 `json:"volsize,omitempty" jsonschema:"Size in bytes of the zvol (required when type is VOLUME)"`
 	}
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "create_dataset",
-		Description: "Create a new ZFS dataset (filesystem) or zvol. At minimum, provide the full path name including the pool (e.g. \"Storage/backups\").",
+		Description: "Create a new ZFS dataset (filesystem) or zvol. At minimum, provide the full path name including the pool (e.g. \"Storage/backups\"). For zvols (type=VOLUME) volsize in bytes is required.",
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p createDatasetInput) (*mcp.CallToolResult, any, error) {
-		dataset, err := client.CreateDataset(ctx, truenas.CreateDatasetParams{
+		dataset, err := client.CreateDataset(ctx, &truenas.CreateDatasetParams{
 			Name:        p.Name,
 			Type:        p.Type,
 			Compression: p.Compression,
 			Comments:    p.Comments,
 			Quota:       p.Quota,
+			Volsize:     p.Volsize,
 		})
 		if err != nil {
 			return nil, nil, fmt.Errorf("create_dataset: %w", err)
