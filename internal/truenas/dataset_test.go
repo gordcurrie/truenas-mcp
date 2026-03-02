@@ -182,6 +182,20 @@ func TestCreateDataset_emptyName(t *testing.T) {
 	}
 }
 
+func TestCreateDataset_nilParams(t *testing.T) {
+	t.Parallel()
+
+	// No server needed — nil guard should fire before any HTTP call.
+	c, err := NewClient("http://localhost:19999", "test-api-key", false) //nolint:gosec // G101: test-api-key is a fake placeholder
+	if err != nil {
+		t.Fatalf("NewClient: %v", err)
+	}
+	_, err = c.CreateDataset(context.Background(), nil)
+	if err == nil {
+		t.Error("expected error for nil params, got nil")
+	}
+}
+
 func TestCreateDataset_zvolMissingVolsize(t *testing.T) {
 	t.Parallel()
 

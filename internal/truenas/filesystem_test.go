@@ -57,6 +57,19 @@ func TestListDirectory_emptyPath(t *testing.T) {
 	}
 }
 
+func TestListDirectory_relativePath(t *testing.T) {
+	t.Parallel()
+
+	c, err := NewClient("http://localhost:19999", "test-api-key", false) //nolint:gosec // G101: test-api-key is a fake placeholder, not a real credential
+	if err != nil {
+		t.Fatalf("NewClient: %v", err)
+	}
+	_, err = c.ListDirectory(context.Background(), "mnt/Storage/pbs")
+	if err == nil {
+		t.Error("expected error for relative path, got nil")
+	}
+}
+
 func TestListDirectory_serverError(t *testing.T) {
 	t.Parallel()
 

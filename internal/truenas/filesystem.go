@@ -3,6 +3,7 @@ package truenas
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 )
 
 // DirEntry represents a single file or directory returned by ListDirectory.
@@ -26,6 +27,9 @@ type listDirRequest struct {
 func (c *Client) ListDirectory(ctx context.Context, path string) ([]DirEntry, error) {
 	if path == "" {
 		return nil, fmt.Errorf("listing directory: path must not be empty")
+	}
+	if !filepath.IsAbs(path) {
+		return nil, fmt.Errorf("listing directory: path must be absolute, got %q", path)
 	}
 	var entries []DirEntry
 	if err := c.postWithBody(ctx, "/filesystem/listdir", listDirRequest{Path: path}, &entries); err != nil {

@@ -89,6 +89,9 @@ func (c *Client) GetDataset(ctx context.Context, id string) (*Dataset, error) {
 // returns the newly created Dataset. The caller must supply at least params.Name.
 // When creating a zvol (Type == "VOLUME"), Volsize must be a positive number of bytes.
 func (c *Client) CreateDataset(ctx context.Context, params *CreateDatasetParams) (*Dataset, error) {
+	if params == nil {
+		return nil, fmt.Errorf("creating dataset: params must not be nil")
+	}
 	if params.Name == "" {
 		return nil, fmt.Errorf("creating dataset: name must not be empty")
 	}

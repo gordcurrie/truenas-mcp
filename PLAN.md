@@ -13,7 +13,7 @@ TrueNAS SCALE as part of the Proxmox backup workflow.
 |---|---|
 | 1–8 (Foundation through CI & Releases) | ✅ Complete — 32 tools shipped |
 | PR — VM Device Management | ✅ Complete — 35 tools shipped |
-| PR — Network, Filesystem & Zvol support | ✅ Complete — 38 tools shipped |
+| PR — Network, Filesystem & Zvol support | ✅ Complete — 37 tools shipped |
 | 9 — WebSocket API Migration | ⏳ Before TrueNAS v26.04 (~mid-2026) |
 | 10 — NFS Share Management | 🔜 Next (Proxmox backup workflow) |
 
@@ -91,7 +91,7 @@ added to the binary will not see it until the cache is cleared.
 attachment, check what ISOs exist in a directory, and create zvol block devices for VM
 disks.
 
-### New tools (3)
+### New tools (2)
 
 | Tool | API endpoint | Description |
 |---|---|---|
