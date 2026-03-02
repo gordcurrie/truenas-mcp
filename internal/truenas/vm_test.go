@@ -414,6 +414,23 @@ func TestAddVMDevice_success(t *testing.T) {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
+
+		// Assert wire format: dtype must be inside attributes, not top-level.
+		var body map[string]json.RawMessage
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Errorf("decoding request body: %v", err)
+		}
+		if _, topLevel := body["dtype"]; topLevel {
+			t.Errorf("dtype must not appear as a top-level field in the request body")
+		}
+		var attrs map[string]any
+		if err := json.Unmarshal(body["attributes"], &attrs); err != nil {
+			t.Errorf("decoding attributes: %v", err)
+		}
+		if attrs["dtype"] != string(VMDeviceTypeCDROM) {
+			t.Errorf("attributes.dtype = %v, want %q", attrs["dtype"], VMDeviceTypeCDROM)
+		}
+
 		w.Header().Set("Content-Type", "application/json")
 		if err := json.NewEncoder(w).Encode(want); err != nil {
 			t.Errorf("encoding response: %v", err)

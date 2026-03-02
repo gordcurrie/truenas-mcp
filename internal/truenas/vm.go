@@ -3,6 +3,7 @@ package truenas
 import (
 	"context"
 	"fmt"
+	"maps"
 	"regexp"
 )
 
@@ -221,6 +222,14 @@ type AddVMDeviceParams struct {
 	Order      *int           `json:"order,omitempty"`
 }
 
+// addVMDeviceWire is the JSON shape the TrueNAS API actually expects:
+// dtype lives inside attributes, not at the top level.
+type addVMDeviceWire struct {
+	VMID       int            `json:"vm"`
+	Attributes map[string]any `json:"attributes"`
+	Order      *int           `json:"order,omitempty"`
+}
+
 // ListVMDevices returns all devices attached to the VM with the given ID.
 // It fetches all devices from the API and filters them by VM ID client-side.
 func (c *Client) ListVMDevices(ctx context.Context, vmID int) ([]VMDevice, error) {
@@ -254,8 +263,20 @@ func (c *Client) AddVMDevice(ctx context.Context, params *AddVMDeviceParams) (*V
 		return nil, fmt.Errorf("adding VM device: attributes must not be empty")
 	}
 
+	// The TrueNAS API expects dtype inside the attributes map, not as a
+	// top-level field. Build the wire payload accordingly.
+	attrs := make(map[string]any, len(params.Attributes)+1)
+	maps.Copy(attrs, params.Attributes)
+	attrs["dtype"] = string(params.DType)
+
+	wire := addVMDeviceWire{
+		VMID:       params.VMID,
+		Attributes: attrs,
+		Order:      params.Order,
+	}
+
 	var device VMDevice
-	if err := c.postWithBody(ctx, "/vm/device", params, &device); err != nil {
+	if err := c.postWithBody(ctx, "/vm/device", wire, &device); err != nil {
 		return nil, fmt.Errorf("adding %s device to VM %d: %w", params.DType, params.VMID, err)
 	}
 	return &device, nil
