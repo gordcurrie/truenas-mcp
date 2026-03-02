@@ -245,7 +245,7 @@ func (c *Client) AddVMDevice(ctx context.Context, params *AddVMDeviceParams) (*V
 		return nil, fmt.Errorf("adding VM device: params must not be nil")
 	}
 	if params.VMID <= 0 {
-		return nil, fmt.Errorf("adding VM device: vm_id must be a positive integer")
+		return nil, fmt.Errorf("adding VM device: vm must be a positive integer")
 	}
 	if params.DType == "" {
 		return nil, fmt.Errorf("adding VM device: dtype must not be empty")

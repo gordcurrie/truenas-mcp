@@ -171,7 +171,7 @@ func registerVMTools(s *mcp.Server, client *truenas.Client) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "list_vm_devices",
-		Description: "List all hardware devices attached to a VM (disks, CDROMs, NICs, displays). Returns each device's ID, type, and attributes.",
+		Description: "List all hardware devices attached to a VM (disks, CDROMs, NICs, displays). Returns the full device objects, including each device's ID, VM ID, order (if set), type, and attributes.",
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p listVMDevicesInput) (*mcp.CallToolResult, any, error) {
 		devices, err := client.ListVMDevices(ctx, p.ID)
@@ -203,20 +203,5 @@ func registerVMTools(s *mcp.Server, client *truenas.Client) {
 			return nil, nil, fmt.Errorf("add_vm_device: %w", err)
 		}
 		return jsonResult(device)
-	})
-
-	type deleteVMDeviceInput struct {
-		ID int `json:"id" jsonschema:"required,Numeric device ID (from list_vm_devices)"`
-	}
-
-	mcp.AddTool(s, &mcp.Tool{
-		Name:        "delete_vm_device",
-		Description: "Remove a hardware device from a VM by its device ID. Use list_vm_devices to find device IDs. Changes take effect on next boot.",
-		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false},
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, p deleteVMDeviceInput) (*mcp.CallToolResult, any, error) {
-		if err := client.DeleteVMDevice(ctx, p.ID); err != nil {
-			return nil, nil, fmt.Errorf("delete_vm_device: %w", err)
-		}
-		return jsonResult(map[string]any{"deleted": true, "device_id": p.ID})
 	})
 }

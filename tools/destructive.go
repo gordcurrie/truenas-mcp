@@ -79,4 +79,26 @@ func registerDestructiveTools(s *mcp.Server, client *truenas.Client) {
 		}
 		return jsonResult(map[string]any{"deleted": true, "id": p.ID})
 	})
+
+	type deleteVMDeviceInput struct {
+		ID        int  `json:"id"        jsonschema:"required,Numeric device ID (from list_vm_devices)"`
+		Confirmed bool `json:"confirmed" jsonschema:"required,Must be set to true to confirm removal"`
+	}
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "delete_vm_device",
+		Description: "Remove a hardware device from a VM by its device ID. Use list_vm_devices to find device IDs. Changes take effect on next boot. Set confirmed=true to proceed.",
+		Annotations: &mcp.ToolAnnotations{
+			ReadOnlyHint:    false,
+			DestructiveHint: &destructiveHint,
+		},
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, p deleteVMDeviceInput) (*mcp.CallToolResult, any, error) {
+		if !p.Confirmed {
+			return nil, nil, errors.New("delete_vm_device: confirmed must be true to proceed with removal")
+		}
+		if err := client.DeleteVMDevice(ctx, p.ID); err != nil {
+			return nil, nil, fmt.Errorf("delete_vm_device: %w", err)
+		}
+		return jsonResult(map[string]any{"deleted": true, "device_id": p.ID})
+	})
 }
