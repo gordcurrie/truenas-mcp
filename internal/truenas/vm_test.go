@@ -419,6 +419,8 @@ func TestAddVMDevice_success(t *testing.T) {
 		var body map[string]json.RawMessage
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			t.Errorf("decoding request body: %v", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
 		}
 		if _, topLevel := body["dtype"]; topLevel {
 			t.Errorf("dtype must not appear as a top-level field in the request body")
@@ -426,6 +428,8 @@ func TestAddVMDevice_success(t *testing.T) {
 		var attrs map[string]any
 		if err := json.Unmarshal(body["attributes"], &attrs); err != nil {
 			t.Errorf("decoding attributes: %v", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
 		}
 		if attrs["dtype"] != string(VMDeviceTypeCDROM) {
 			t.Errorf("attributes.dtype = %v, want %q", attrs["dtype"], VMDeviceTypeCDROM)
@@ -468,6 +472,7 @@ func TestAddVMDevice_validation(t *testing.T) {
 		{"zero vmid", &AddVMDeviceParams{VMID: 0, DType: VMDeviceTypeDISK, Attributes: map[string]any{"path": "zvol/x"}}},
 		{"empty dtype", &AddVMDeviceParams{VMID: 1, DType: "", Attributes: map[string]any{"path": "zvol/x"}}},
 		{"empty attributes", &AddVMDeviceParams{VMID: 1, DType: VMDeviceTypeDISK, Attributes: map[string]any{}}},
+		{"dtype in attributes", &AddVMDeviceParams{VMID: 1, DType: VMDeviceTypeDISK, Attributes: map[string]any{"dtype": "DISK", "path": "zvol/x"}}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -265,6 +265,11 @@ func (c *Client) AddVMDevice(ctx context.Context, params *AddVMDeviceParams) (*V
 
 	// The TrueNAS API expects dtype inside the attributes map, not as a
 	// top-level field. Build the wire payload accordingly.
+	// Reject ambiguous input: DType is the authoritative source for dtype.
+	// Callers must not set "dtype" inside Attributes directly.
+	if _, conflict := params.Attributes["dtype"]; conflict {
+		return nil, fmt.Errorf("adding VM device: dtype must be set via DType, not inside Attributes")
+	}
 	attrs := make(map[string]any, len(params.Attributes)+1)
 	maps.Copy(attrs, params.Attributes)
 	attrs["dtype"] = string(params.DType)
