@@ -13,8 +13,9 @@ TrueNAS SCALE as part of the Proxmox backup workflow.
 |---|---|
 | 1–8 (Foundation through CI & Releases) | ✅ Complete — 32 tools shipped |
 | PR — VM Device Management | ✅ Complete — 35 tools shipped |
+| PR — Safety & Quality Fixes | 🔜 Immediate next (no new tools) |
 | 9 — WebSocket API Migration | ⏳ Before TrueNAS v26.04 (~mid-2026) |
-| 10 — NFS Share Management | 🔜 Next (Proxmox backup workflow) |
+| 10 — NFS Share Management | 🔜 After safety PR (Proxmox backup workflow) |
 
 ## Decisions
 
@@ -81,6 +82,170 @@ Copilot caches the tool list per-connection; a stale connection from before the 
 added to the binary will not see it until the cache is cleared.
 
 **Tool count:** 32 + 3 = **35 tools**
+
+---
+
+## PR — Safety & Quality Fixes
+
+**Goal**: Address critical safety, correctness, and maintainability issues identified in the
+MCP expert review before any new feature work begins. No new tools are added; no public
+interfaces change.
+
+> **Why 6/10?** The architecture and Go idioms are genuinely strong. The score reflects
+> one real data-safety gap (`rollback_snapshot` can destroy datasets through an agent with
+> no confirmation), a timer leak in the job poller, misleading security-audit comments that
+> undermine the `//nolint` review trail, and missing input validation on integer IDs. These
+> are not cosmetic — they are the difference between a server you can trust to run
+> unsupervised and one you cannot. Fix these and the baseline comfortably reaches 8+.
+
+---
+
+### Critical — Must Fix
+
+#### C1: `rollback_snapshot` is missing the destructive gate
+
+`rollback_snapshot` destroys all ZFS data written after the target snapshot point. It is at
+least as destructive as `delete_snapshot`, which already requires all three safety layers.
+Currently `rollback_snapshot` sits in `registerSnapshotTools`, has no `confirmed bool`
+guard, no `DestructiveHint`, and is registered even when `TRUENAS_ALLOW_DESTRUCTIVE=false`.
+An LLM agent can call it silently in a default configuration.
+
+**Tasks:**
+- [ ] Move `rollback_snapshot` out of `tools/snapshot.go` into `tools/destructive.go`
+- [ ] Add `Confirmed bool` field (`jsonschema:"required,..."`) to `rollbackSnapshotInput`
+- [ ] Return early with an error when `!p.Confirmed`
+- [ ] Add `DestructiveHint: &destructiveHint` to the tool annotations
+- [ ] Update README destructive table and PLAN.md tool count if reclassification changes the numbers
+
+#### C2: Stale Proxmox copy-paste in `client.go` comments
+
+Three places in `internal/truenas/client.go` reference the Proxmox project this was forked
+from. This directly undermines the audit trail for `//nolint` directives — a reviewer
+checking the `gosec` annotation will see the wrong env var name and reasonably conclude the
+justification was not reviewed for this codebase.
+
+**Tasks:**
+- [ ] `//nolint:gosec` on `InsecureSkipVerify`: change `PROXMOX_INSECURE` → `TRUENAS_INSECURE`
+- [ ] `//nolint:gosec` on `httpClient.Do`: change `PROXMOX_API_URL` → `TRUENAS_API_URL`
+- [ ] `post()` doc comment: remove the sentence referencing the Proxmox `{"data": ...}` envelope
+
+#### C3: Timer leak in `PollJob`
+
+`time.After` in a loop allocates a new timer every iteration. The timer has a 2-second fuse
+and is not garbage-collected until it fires. If the loop exits early (context cancelled, job
+succeeded, job failed), the current-iteration timer leaks until it fires. Under concurrent
+job polling this accumulates.
+
+**Tasks:**
+- [ ] Replace `time.After(jobPollInterval)` with a `time.NewTimer` created once before the
+  loop, stopped via `defer timer.Stop()`, and reset at the top of each iteration using
+  `timer.Reset(jobPollInterval)` (drain the channel first if needed to avoid stale tick)
+- [ ] Update `jobs_test.go` if the timing behaviour changes
+
+#### C4: Zero-value integer IDs are not validated
+
+`get_vm`, `get_pool`, `list_vm_devices`, and `add_vm_device` accept `id int`. Go's zero
+value is `0`; if an LLM omits the field or passes `null`, the server silently issues a real
+HTTP request to `/vm/id/0`. No TrueNAS resource ever has ID 0.
+
+**Tasks:**
+- [ ] Add `if p.ID <= 0 { return nil, nil, errors.New("...: id must be a positive integer") }`
+  at the top of each affected handler in `tools/vm.go` and `tools/pool.go`
+- [ ] Apply the same guard in `tools/destructive.go` for `deleteVMInput` and `deleteVMDeviceInput`
+
+---
+
+### Recommended — High Value
+
+#### R1: `list_snapshots` fetches all snapshots then filters in Go
+
+A large NAS instance may have thousands of snapshots. The full list is transferred over the
+wire and decoded before the dataset filter is applied. TrueNAS v2 supports server-side query
+filters.
+
+**Tasks:**
+- [ ] When `dataset != ""`, request
+  `GET /pool/snapshot?query-filters=[["dataset","=","<dataset>"]]` instead of fetching all
+- [ ] Update `ListSnapshots` in `internal/truenas/snapshot.go`
+- [ ] Update `snapshot_test.go`
+
+#### R2: HTTP graceful shutdown has no timeout
+
+`httpServer.Shutdown(context.Background())` in `cmd/truenas-mcp/main.go` waits forever for
+active connections to drain if a client holds a streaming connection open.
+
+**Tasks:**
+- [ ] Replace `context.Background()` with `context.WithTimeout(context.Background(), 10*time.Second)`
+- [ ] `defer cancel()` the returned cancel function
+
+#### R3: `update_vm` memory validation is effectively a no-op
+
+The guard `params.Memory < 0` never triggers in practice because `Memory int` with
+`omitempty` means 0 (the zero value) is never serialised. The validation looks correct but
+does not protect against the actual edge case.
+
+**Tasks:**
+- [ ] The correct rule is: if Memory is provided it must be > 0; since 0 means "unchanged"
+  (omitted by `omitempty`), only negative values need to be rejected — add a comment
+  explaining this clearly so the next reader does not remove it as dead code
+- [ ] Confirm the positive guard in `CreateVM` is intentional and add a matching comment
+
+#### R4: Required string inputs in tool handlers have no blank-check
+
+Tools such as `get_app`, `get_dataset`, `create_snapshot`, `get_snapshot`, and
+`list_directory` accept required string fields with no empty-string guard. Blank input
+produces a confusing 404 or opaque API error from TrueNAS rather than a clear MCP tool error.
+
+**Tasks:**
+- [ ] Add `if p.Name == "" { return nil, nil, errors.New("...: name must not be empty") }`
+  (or equivalent for `id`, `path`, `dataset`) at the top of each affected tool handler
+- [ ] Add one table-driven test case per handler that passes the zero-value and expects an error
+
+#### R5: Verify `jsonschema` tag format produces correct schema
+
+Tags like `` jsonschema:"required,Numeric VM ID" `` mix a constraint keyword and a
+natural-language description in a single unkeyed string. Confirm what `google/jsonschema-go`
+actually emits and whether `required` is honoured as a constraint or treated as description text.
+
+**Tasks:**
+- [ ] Write a short test that marshals the JSON schema for a typed input struct with a
+  `required` int field and asserts the output contains `"required"` as a schema keyword
+- [ ] If not emitted correctly: update affected tags to the format the library supports
+- [ ] If emitted correctly: add a comment in `copilot-instructions.md` confirming the format
+
+---
+
+### Minor — Clean Up
+
+#### M1: HTTP server factory comment
+
+The `func(*http.Request) *mcp.Server { return server }` factory in `main.go` always returns
+the same instance. Add a one-line comment stating this is intentional for a stateless tool
+server without per-session resources, so a future maintainer does not "fix" it.
+
+#### M2: `add_vm_device` dtype is not validated before the API call
+
+`dtype` is passed as a free string and cast to `VMDeviceType`. An invalid value like `"USB"`
+is forwarded to TrueNAS, which returns an opaque 422. Validate against the known constants
+(`DISK`, `CDROM`, `NIC`, `DISPLAY`, `RAW`) in the tool handler before calling the client.
+
+---
+
+### Full Checklist
+
+- [x] C1 — `rollback_snapshot` moved to destructive, `confirmed` gate added
+- [x] C2 — Proxmox copy-paste comments corrected in `client.go`
+- [x] C3 — `PollJob` timer leak fixed with `time.NewTimer`
+- [x] C4 — Zero-value ID guards added in VM and pool tool handlers
+- [x] R1 — `list_snapshots` uses server-side query filter when dataset is specified
+- [x] R2 — HTTP shutdown uses a 10 s timeout context
+- [x] R3 — `update_vm` memory validation clarified with comments
+- [x] R4 — Required string inputs validated in tool handlers
+- [x] R5 — `jsonschema` tag format verified: entire value = description; required is inferred from absence of `omitempty`; all redundant `required,` prefixes stripped from descriptions
+- [x] M1 — HTTP factory comment added
+- [x] M2 — `add_vm_device` dtype validated against known constants
+- [x] `make check` passes
+- [x] README and PLAN.md tool counts updated if reclassification occurs
 
 ---
 

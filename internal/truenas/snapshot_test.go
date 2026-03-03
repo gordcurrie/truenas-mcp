@@ -48,9 +48,8 @@ func TestListSnapshots_success(t *testing.T) {
 func TestListSnapshots_filterByDataset(t *testing.T) {
 	t.Parallel()
 
-	all := []Snapshot{
+	want := []Snapshot{
 		{ID: "Storage/backups@snap1", Dataset: "Storage/backups", Name: "snap1", Pool: "Storage"},
-		{ID: "apps/data@snap1", Dataset: "apps/data", Name: "snap1", Pool: "apps"},
 	}
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -58,8 +57,15 @@ func TestListSnapshots_filterByDataset(t *testing.T) {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
+		// The client should be sending a server-side query-filters param.
+		// Simulate TrueNAS filtering: return only the matching dataset's snapshot.
+		if r.URL.RawQuery == "" {
+			t.Error("expected query-filters param but got none")
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(all); err != nil {
+		if err := json.NewEncoder(w).Encode(want); err != nil {
 			t.Errorf("encoding response: %v", err)
 		}
 	}))

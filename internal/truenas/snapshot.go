@@ -2,6 +2,7 @@ package truenas
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"strings"
@@ -50,25 +51,26 @@ func snapshotIDPath(id string) string {
 	return "/pool/snapshot/id/" + url.PathEscape(id)
 }
 
-// ListSnapshots returns all ZFS snapshots visible to the API.
-// If dataset is non-empty, only snapshots whose Dataset field matches are returned.
+// ListSnapshots returns ZFS snapshots visible to the API.
+// If dataset is non-empty, a server-side query filter is applied so that only
+// snapshots for that dataset are transferred over the wire. This avoids fetching
+// potentially thousands of snapshots when only one dataset's history is needed.
 func (c *Client) ListSnapshots(ctx context.Context, dataset string) ([]Snapshot, error) {
+	path := "/pool/snapshot"
+	if dataset != "" {
+		// Build the TrueNAS query-filter: [["dataset", "=", "<value>"]]
+		filter, err := json.Marshal([][]string{{"dataset", "=", dataset}})
+		if err != nil {
+			return nil, fmt.Errorf("building snapshot query filter: %w", err)
+		}
+		path += "?query-filters=" + url.QueryEscape(string(filter))
+	}
+
 	var snapshots []Snapshot
-	if err := c.get(ctx, "/pool/snapshot", &snapshots); err != nil {
+	if err := c.get(ctx, path, &snapshots); err != nil {
 		return nil, fmt.Errorf("listing snapshots: %w", err)
 	}
-
-	if dataset == "" {
-		return snapshots, nil
-	}
-
-	filtered := make([]Snapshot, 0, len(snapshots))
-	for i := range snapshots {
-		if snapshots[i].Dataset == dataset {
-			filtered = append(filtered, snapshots[i])
-		}
-	}
-	return filtered, nil
+	return snapshots, nil
 }
 
 // GetSnapshot returns a single snapshot by its full ID (e.g. "Storage/backups@before-upgrade").

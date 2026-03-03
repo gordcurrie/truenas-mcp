@@ -2,6 +2,7 @@ package tools
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -39,6 +40,9 @@ func registerDatasetTools(s *mcp.Server, client *truenas.Client) {
 		Description: "Get detailed information about a specific ZFS dataset or zvol by its full path ID (e.g. \"Storage/backups\").",
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p getDatasetInput) (*mcp.CallToolResult, any, error) {
+		if p.ID == "" {
+			return nil, nil, errors.New("get_dataset: id must not be empty")
+		}
 		dataset, err := client.GetDataset(ctx, p.ID)
 		if err != nil {
 			return nil, nil, fmt.Errorf("get_dataset: %w", err)
@@ -48,7 +52,7 @@ func registerDatasetTools(s *mcp.Server, client *truenas.Client) {
 
 	type createDatasetInput struct {
 		// Name is the full dataset path including the pool, e.g. "Storage/backups".
-		Name string `json:"name" jsonschema:"required,Full dataset path including pool, e.g. Storage/backups"`
+		Name string `json:"name" jsonschema:"Full dataset path including pool, e.g. Storage/backups"`
 		// Type is FILESYSTEM (default) or VOLUME.
 		Type string `json:"type,omitempty" jsonschema:"Dataset type: FILESYSTEM or VOLUME; defaults to FILESYSTEM"`
 		// Compression algorithm, e.g. lz4, gzip, zstd. Omit to use the pool default.
@@ -66,6 +70,9 @@ func registerDatasetTools(s *mcp.Server, client *truenas.Client) {
 		Description: "Create a new ZFS dataset (filesystem) or zvol. At minimum, provide the full path name including the pool (e.g. \"Storage/backups\"). For zvols (type=VOLUME) volsize in bytes is required.",
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p createDatasetInput) (*mcp.CallToolResult, any, error) {
+		if p.Name == "" {
+			return nil, nil, errors.New("create_dataset: name must not be empty")
+		}
 		dataset, err := client.CreateDataset(ctx, &truenas.CreateDatasetParams{
 			Name:        p.Name,
 			Type:        p.Type,

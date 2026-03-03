@@ -2,6 +2,7 @@ package tools
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -34,6 +35,9 @@ func registerVMTools(s *mcp.Server, client *truenas.Client) {
 		Description: "Get detailed information about a specific virtual machine by its numeric ID.",
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p getVMInput) (*mcp.CallToolResult, any, error) {
+		if p.ID <= 0 {
+			return nil, nil, errors.New("get_vm: id must be a positive integer")
+		}
 		vm, err := client.GetVM(ctx, p.ID)
 		if err != nil {
 			return nil, nil, fmt.Errorf("get_vm: %w", err)
@@ -50,6 +54,9 @@ func registerVMTools(s *mcp.Server, client *truenas.Client) {
 		Description: "Start a virtual machine by its numeric ID. Returns the async job ID immediately (non-blocking).",
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p startVMInput) (*mcp.CallToolResult, any, error) {
+		if p.ID <= 0 {
+			return nil, nil, errors.New("start_vm: id must be a positive integer")
+		}
 		jobID, err := client.StartVM(ctx, p.ID)
 		if err != nil {
 			return nil, nil, fmt.Errorf("start_vm: %w", err)
@@ -67,6 +74,9 @@ func registerVMTools(s *mcp.Server, client *truenas.Client) {
 		Description: "Stop a virtual machine by its numeric ID. Set force=true to forcibly terminate without a graceful shutdown. Returns the async job ID immediately (non-blocking).",
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p stopVMInput) (*mcp.CallToolResult, any, error) {
+		if p.ID <= 0 {
+			return nil, nil, errors.New("stop_vm: id must be a positive integer")
+		}
 		jobID, err := client.StopVM(ctx, p.ID, p.Force)
 		if err != nil {
 			return nil, nil, fmt.Errorf("stop_vm: %w", err)
@@ -83,6 +93,9 @@ func registerVMTools(s *mcp.Server, client *truenas.Client) {
 		Description: "Restart a virtual machine by its numeric ID. Returns the async job ID immediately (non-blocking).",
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p restartVMInput) (*mcp.CallToolResult, any, error) {
+		if p.ID <= 0 {
+			return nil, nil, errors.New("restart_vm: id must be a positive integer")
+		}
 		jobID, err := client.RestartVM(ctx, p.ID)
 		if err != nil {
 			return nil, nil, fmt.Errorf("restart_vm: %w", err)
@@ -91,8 +104,8 @@ func registerVMTools(s *mcp.Server, client *truenas.Client) {
 	})
 
 	type createVMInput struct {
-		Name            string `json:"name"                       jsonschema:"required,VM name (alphanumeric characters only; hyphens and special characters are not allowed)"`
-		Memory          int    `json:"memory"                     jsonschema:"required,RAM in MiB (e.g. 4096 for 4 GiB)"`
+		Name            string `json:"name"                       jsonschema:"VM name (alphanumeric characters only; hyphens and special characters are not allowed)"`
+		Memory          int    `json:"memory"                     jsonschema:"RAM in MiB (e.g. 4096 for 4 GiB)"`
 		Description     string `json:"description,omitempty"      jsonschema:"Optional description"`
 		VCPUs           int    `json:"vcpus,omitempty"            jsonschema:"Total virtual CPU count; defaults to 1"`
 		Bootloader      string `json:"bootloader,omitempty"       jsonschema:"UEFI (default), UEFI_CSM, or GRUB"`
@@ -129,7 +142,7 @@ func registerVMTools(s *mcp.Server, client *truenas.Client) {
 	})
 
 	type updateVMInput struct {
-		ID              int    `json:"id"                         jsonschema:"required,Numeric VM ID"`
+		ID              int    `json:"id"                         jsonschema:"Numeric VM ID"`
 		Name            string `json:"name,omitempty"             jsonschema:"New VM name"`
 		Description     string `json:"description,omitempty"      jsonschema:"New description"`
 		VCPUs           int    `json:"vcpus,omitempty"            jsonschema:"New total virtual CPU count"`
@@ -147,6 +160,9 @@ func registerVMTools(s *mcp.Server, client *truenas.Client) {
 		Description: "Update configuration of an existing VM by ID. Only fields with non-zero/non-empty values are applied; fields left unset or set to their zero value are ignored and remain unchanged. Clearing a field to empty string or 0 is not supported. Returns the updated VM.",
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p updateVMInput) (*mcp.CallToolResult, any, error) {
+		if p.ID <= 0 {
+			return nil, nil, errors.New("update_vm: id must be a positive integer")
+		}
 		vm, err := client.UpdateVM(ctx, p.ID, &truenas.UpdateVMParams{
 			Name:            p.Name,
 			Description:     p.Description,
@@ -166,7 +182,7 @@ func registerVMTools(s *mcp.Server, client *truenas.Client) {
 	})
 
 	type listVMDevicesInput struct {
-		ID int `json:"id" jsonschema:"required,Numeric VM ID"`
+		ID int `json:"id" jsonschema:"Numeric VM ID"`
 	}
 
 	mcp.AddTool(s, &mcp.Tool{
@@ -174,6 +190,9 @@ func registerVMTools(s *mcp.Server, client *truenas.Client) {
 		Description: "List all hardware devices attached to a VM (disks, CDROMs, NICs, displays). Returns the full device objects, including each device's ID, VM ID, order (if set), type, and attributes.",
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p listVMDevicesInput) (*mcp.CallToolResult, any, error) {
+		if p.ID <= 0 {
+			return nil, nil, errors.New("list_vm_devices: id must be a positive integer")
+		}
 		devices, err := client.ListVMDevices(ctx, p.ID)
 		if err != nil {
 			return nil, nil, fmt.Errorf("list_vm_devices: %w", err)
@@ -182,9 +201,9 @@ func registerVMTools(s *mcp.Server, client *truenas.Client) {
 	})
 
 	type addVMDeviceInput struct {
-		VMID       int            `json:"vm_id"    jsonschema:"required,Numeric VM ID to attach the device to"`
-		DType      string         `json:"dtype"    jsonschema:"required,Device type: DISK | CDROM | NIC | DISPLAY. DISK attrs: {path:'zvol/pool/dataset' type:'VIRTIO'}. CDROM attrs: {path:'/mnt/Storage/isos/file.iso'}. NIC attrs: {type:'VIRTIO' nic_attach:'br0'}. DISPLAY attrs: {web:true port:5900}"`
-		Attributes map[string]any `json:"attributes" jsonschema:"required,Device-type-specific key-value pairs. See dtype description for examples."`
+		VMID       int            `json:"vm_id"    jsonschema:"Numeric VM ID to attach the device to"`
+		DType      string         `json:"dtype"    jsonschema:"Device type: DISK | CDROM | NIC | DISPLAY. DISK attrs: {path:'zvol/pool/dataset' type:'VIRTIO'}. CDROM attrs: {path:'/mnt/Storage/isos/file.iso'}. NIC attrs: {type:'VIRTIO' nic_attach:'br0'}. DISPLAY attrs: {web:true port:5900}"`
+		Attributes map[string]any `json:"attributes" jsonschema:"Device-type-specific key-value pairs. See dtype description for examples."`
 		Order      *int           `json:"order,omitempty" jsonschema:"Optional boot/device order index"`
 	}
 
@@ -193,6 +212,15 @@ func registerVMTools(s *mcp.Server, client *truenas.Client) {
 		Description: "Attach a hardware device to a VM. Supports DISK (zvol-backed), CDROM (ISO file), NIC (virtio/e1000), and DISPLAY (VNC). The VM does not need to be stopped to add devices, but changes take effect on next boot.",
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p addVMDeviceInput) (*mcp.CallToolResult, any, error) {
+		if p.VMID <= 0 {
+			return nil, nil, errors.New("add_vm_device: vm_id must be a positive integer")
+		}
+		switch truenas.VMDeviceType(p.DType) {
+		case truenas.VMDeviceTypeDISK, truenas.VMDeviceTypeCDROM, truenas.VMDeviceTypeNIC, truenas.VMDeviceTypeDISPLAY, truenas.VMDeviceTypeRAW:
+			// valid dtype
+		default:
+			return nil, nil, fmt.Errorf("add_vm_device: dtype must be one of DISK, CDROM, NIC, DISPLAY, RAW; got %q", p.DType)
+		}
 		device, err := client.AddVMDevice(ctx, &truenas.AddVMDeviceParams{
 			VMID:       p.VMID,
 			DType:      truenas.VMDeviceType(p.DType),

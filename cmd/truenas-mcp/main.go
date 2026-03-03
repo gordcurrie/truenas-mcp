@@ -80,6 +80,9 @@ func run() error {
 			return fmt.Errorf("stdio server: %w", err)
 		}
 	case "http":
+		// The factory always returns the same server instance: this is intentional for a
+		// stateless tool server with no per-session resources. If per-session state is
+		// ever needed, the factory must create a new server per request instead.
 		handler := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server {
 			return server
 		}, nil)
@@ -91,7 +94,9 @@ func run() error {
 		slog.Info("truenas-mcp listening", "addr", *addr, "transport", "http")
 		go func() {
 			<-ctx.Done()
-			if shutdownErr := httpServer.Shutdown(context.Background()); shutdownErr != nil {
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			if shutdownErr := httpServer.Shutdown(shutdownCtx); shutdownErr != nil {
 				slog.Warn("HTTP server shutdown error", "err", shutdownErr)
 			}
 		}()

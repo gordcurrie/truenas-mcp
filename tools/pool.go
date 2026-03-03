@@ -2,6 +2,7 @@ package tools
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -34,6 +35,9 @@ func registerPoolTools(s *mcp.Server, client *truenas.Client) {
 		Description: "Get detailed information about a specific ZFS pool by ID.",
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p getPoolInput) (*mcp.CallToolResult, any, error) {
+		if p.ID <= 0 {
+			return nil, nil, errors.New("get_pool: id must be a positive integer")
+		}
 		pool, err := client.GetPool(ctx, p.ID)
 		if err != nil {
 			return nil, nil, fmt.Errorf("get_pool: %w", err)
