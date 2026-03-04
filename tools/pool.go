@@ -12,14 +12,17 @@ import (
 
 // registerPoolTools registers all pool-related MCP tools onto the server.
 func registerPoolTools(s *mcp.Server, client *truenas.Client) {
-	type listPoolsInput struct{}
+	type listPoolsInput struct {
+		Limit  int `json:"limit,omitempty"  jsonschema:"Maximum number of pools to return; 0 means no limit"`
+		Offset int `json:"offset,omitempty" jsonschema:"Number of pools to skip; 0 means start from the beginning"`
+	}
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "list_pools",
 		Description: "List all ZFS storage pools and their status, size, and health.",
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true},
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ listPoolsInput) (*mcp.CallToolResult, any, error) {
-		pools, err := client.ListPools(ctx)
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, p listPoolsInput) (*mcp.CallToolResult, any, error) {
+		pools, err := client.ListPools(ctx, truenas.ListOptions{Limit: p.Limit, Offset: p.Offset})
 		if err != nil {
 			return nil, nil, fmt.Errorf("list_pools: %w", err)
 		}
@@ -40,6 +43,9 @@ func registerPoolTools(s *mcp.Server, client *truenas.Client) {
 		}
 		pool, err := client.GetPool(ctx, p.ID)
 		if err != nil {
+			if errors.Is(err, truenas.ErrNotFound) {
+				return nil, nil, fmt.Errorf("get_pool: pool %d not found", p.ID)
+			}
 			return nil, nil, fmt.Errorf("get_pool: %w", err)
 		}
 		return jsonResult(pool)

@@ -26,9 +26,9 @@ An MCP server that exposes [TrueNAS SCALE](https://www.truenas.com/truenas-scale
 
 | Tool | Description | Parameters |
 |---|---|---|
-| `list_pools` | List all ZFS storage pools and their status, size, and health | _(none)_ |
+| `list_pools` | List all ZFS storage pools and their status, size, and health | `limit`, `offset` (int, optional — server-side pagination) |
 | `get_pool` | Get detailed information about a specific ZFS pool | `id` (int) |
-| `list_datasets` | List ZFS datasets and zvols, optionally filtered by pool | `pool` (string, optional) |
+| `list_datasets` | List ZFS datasets and zvols, optionally filtered by pool | `pool` (string, optional); `limit`, `offset` (int, optional — server-side pagination) |
 | `get_dataset` | Get detailed information about a specific ZFS dataset or zvol by its full path | `id` (string, e.g. `Storage/backups`) |
 | `create_dataset` | Create a new ZFS dataset or zvol | `name` (string, required); `type`, `compression`, `comments`, `quota`, `volsize` (optional — `volsize` in bytes is required when `type=VOLUME`) |
 
@@ -36,7 +36,7 @@ An MCP server that exposes [TrueNAS SCALE](https://www.truenas.com/truenas-scale
 
 | Tool | Description | Parameters |
 |---|---|---|
-| `list_vms` | List all VMs and their state (RUNNING/STOPPED), CPU, and memory | _(none)_ |
+| `list_vms` | List all VMs and their state (RUNNING/STOPPED), CPU, and memory | `limit`, `offset` (int, optional — server-side pagination) |
 | `get_vm` | Get detailed information about a specific VM | `id` (int) |
 | `start_vm` | Start a VM; returns async job ID immediately | `id` (int) |
 | `stop_vm` | Stop a VM; set `force=true` to forcibly terminate | `id` (int); `force` (bool, optional) |
@@ -50,7 +50,7 @@ An MCP server that exposes [TrueNAS SCALE](https://www.truenas.com/truenas-scale
 
 | Tool | Description | Parameters |
 |---|---|---|
-| `list_apps` | List all apps managed by TrueNAS SCALE | _(none)_ |
+| `list_apps` | List all apps managed by TrueNAS SCALE | `limit`, `offset` (int, optional — server-side pagination) |
 | `get_app` | Get detailed information about a specific app by its app name | `name` (string) |
 | `start_app` | Start an app; returns async job ID immediately | `name` (string) |
 | `stop_app` | Stop a running app; returns async job ID immediately | `name` (string) |
@@ -66,7 +66,7 @@ An MCP server that exposes [TrueNAS SCALE](https://www.truenas.com/truenas-scale
 
 | Tool | Description | Parameters |
 |---|---|---|
-| `list_snapshots` | List ZFS snapshots, optionally filtered by dataset path | `dataset` (string, optional) |
+| `list_snapshots` | List ZFS snapshots, optionally filtered by dataset path | `dataset` (string, optional); `limit`, `offset` (int, optional — server-side pagination) |
 | `get_snapshot` | Get detailed information about a specific snapshot | `id` (string, e.g. `Storage/backups@before-upgrade`) |
 | `create_snapshot` | Create a new ZFS snapshot of a dataset | `dataset`, `name` (required); `recursive` (bool, optional) |
 

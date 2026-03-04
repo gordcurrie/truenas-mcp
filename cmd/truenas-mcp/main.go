@@ -33,6 +33,10 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
+// version is injected at build time via -ldflags "-X main.version=<tag>".
+// It defaults to "dev" so that local builds have a recognisable identifier.
+var version = "dev"
+
 func main() {
 	if err := run(); err != nil {
 		slog.Error("fatal", "err", err)
@@ -66,7 +70,7 @@ func run() error {
 
 	server := mcp.NewServer(&mcp.Implementation{
 		Name:    "truenas-mcp",
-		Version: "v0.1.0",
+		Version: version,
 	}, nil)
 
 	tools.RegisterAll(server, client, tools.Config{AllowDestructive: allowDestructive})
@@ -90,6 +94,9 @@ func run() error {
 			Addr:              *addr,
 			Handler:           handler,
 			ReadHeaderTimeout: 30 * time.Second,
+			// WriteTimeout must exceed the TrueNAS API client timeout (30s) plus
+			// any job-polling time so that in-flight responses are never cut short.
+			WriteTimeout: 90 * time.Second,
 		}
 		slog.Info("truenas-mcp listening", "addr", *addr, "transport", "http")
 		go func() {
