@@ -59,8 +59,15 @@ func TestListSnapshots_filterByDataset(t *testing.T) {
 		}
 		// The client should be sending a server-side query-filters param.
 		// Simulate TrueNAS filtering: return only the matching dataset's snapshot.
-		if r.URL.RawQuery == "" {
+		qf := r.URL.Query().Get("query-filters")
+		if qf == "" {
 			t.Error("expected query-filters param but got none")
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		wantFilter := `[["dataset","=","Storage/backups"]]`
+		if qf != wantFilter {
+			t.Errorf("query-filters = %q, want %q", qf, wantFilter)
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}

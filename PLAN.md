@@ -13,7 +13,7 @@ TrueNAS SCALE as part of the Proxmox backup workflow.
 |---|---|
 | 1–8 (Foundation through CI & Releases) | ✅ Complete — 32 tools shipped |
 | PR — VM Device Management | ✅ Complete — 35 tools shipped |
-| PR — Safety & Quality Fixes | 🔜 Immediate next (no new tools) |
+| PR — Safety & Quality Fixes | ✅ Complete — 35 tools shipped |
 | 9 — WebSocket API Migration | ⏳ Before TrueNAS v26.04 (~mid-2026) |
 | 10 — NFS Share Management | 🔜 After safety PR (Proxmox backup workflow) |
 
@@ -125,9 +125,9 @@ checking the `gosec` annotation will see the wrong env var name and reasonably c
 justification was not reviewed for this codebase.
 
 **Tasks:**
-- [ ] `//nolint:gosec` on `InsecureSkipVerify`: change `PROXMOX_INSECURE` → `TRUENAS_INSECURE`
-- [ ] `//nolint:gosec` on `httpClient.Do`: change `PROXMOX_API_URL` → `TRUENAS_API_URL`
-- [ ] `post()` doc comment: remove the sentence referencing the Proxmox `{"data": ...}` envelope
+- [x] `//nolint:gosec` on `InsecureSkipVerify`: change `PROXMOX_INSECURE` → `TRUENAS_INSECURE`
+- [x] `//nolint:gosec` on `httpClient.Do`: change `PROXMOX_API_URL` → `TRUENAS_API_URL`
+- [x] `post()` doc comment: remove the sentence referencing the Proxmox `{"data": ...}` envelope
 
 #### C3: Timer leak in `PollJob`
 
@@ -137,10 +137,10 @@ succeeded, job failed), the current-iteration timer leaks until it fires. Under 
 job polling this accumulates.
 
 **Tasks:**
-- [ ] Replace `time.After(jobPollInterval)` with a `time.NewTimer` created once before the
+- [x] Replace `time.After(jobPollInterval)` with a `time.NewTimer` created once before the
   loop, stopped via `defer timer.Stop()`, and reset at the top of each iteration using
   `timer.Reset(jobPollInterval)` (drain the channel first if needed to avoid stale tick)
-- [ ] Update `jobs_test.go` if the timing behaviour changes
+- [x] Update `jobs_test.go` if the timing behaviour changes
 
 #### C4: Zero-value integer IDs are not validated
 
@@ -149,9 +149,9 @@ value is `0`; if an LLM omits the field or passes `null`, the server silently is
 HTTP request to `/vm/id/0`. No TrueNAS resource ever has ID 0.
 
 **Tasks:**
-- [ ] Add `if p.ID <= 0 { return nil, nil, errors.New("...: id must be a positive integer") }`
+- [x] Add `if p.ID <= 0 { return nil, nil, errors.New("...: id must be a positive integer") }`
   at the top of each affected handler in `tools/vm.go` and `tools/pool.go`
-- [ ] Apply the same guard in `tools/destructive.go` for `deleteVMInput` and `deleteVMDeviceInput`
+- [x] Apply the same guard in `tools/destructive.go` for `deleteVMInput` and `deleteVMDeviceInput`
 
 ---
 
@@ -164,10 +164,10 @@ wire and decoded before the dataset filter is applied. TrueNAS v2 supports serve
 filters.
 
 **Tasks:**
-- [ ] When `dataset != ""`, request
+- [x] When `dataset != ""`, request
   `GET /pool/snapshot?query-filters=[["dataset","=","<dataset>"]]` instead of fetching all
-- [ ] Update `ListSnapshots` in `internal/truenas/snapshot.go`
-- [ ] Update `snapshot_test.go`
+- [x] Update `ListSnapshots` in `internal/truenas/snapshot.go`
+- [x] Update `snapshot_test.go`
 
 #### R2: HTTP graceful shutdown has no timeout
 
@@ -175,8 +175,8 @@ filters.
 active connections to drain if a client holds a streaming connection open.
 
 **Tasks:**
-- [ ] Replace `context.Background()` with `context.WithTimeout(context.Background(), 10*time.Second)`
-- [ ] `defer cancel()` the returned cancel function
+- [x] Replace `context.Background()` with `context.WithTimeout(context.Background(), 10*time.Second)`
+- [x] `defer cancel()` the returned cancel function
 
 #### R3: `update_vm` memory validation is effectively a no-op
 
@@ -185,10 +185,10 @@ The guard `params.Memory < 0` never triggers in practice because `Memory int` wi
 does not protect against the actual edge case.
 
 **Tasks:**
-- [ ] The correct rule is: if Memory is provided it must be > 0; since 0 means "unchanged"
+- [x] The correct rule is: if Memory is provided it must be > 0; since 0 means "unchanged"
   (omitted by `omitempty`), only negative values need to be rejected — add a comment
   explaining this clearly so the next reader does not remove it as dead code
-- [ ] Confirm the positive guard in `CreateVM` is intentional and add a matching comment
+- [x] Confirm the positive guard in `CreateVM` is intentional and add a matching comment
 
 #### R4: Required string inputs in tool handlers have no blank-check
 
@@ -197,9 +197,9 @@ Tools such as `get_app`, `get_dataset`, `create_snapshot`, `get_snapshot`, and
 produces a confusing 404 or opaque API error from TrueNAS rather than a clear MCP tool error.
 
 **Tasks:**
-- [ ] Add `if p.Name == "" { return nil, nil, errors.New("...: name must not be empty") }`
+- [x] Add `if p.Name == "" { return nil, nil, errors.New("...: name must not be empty") }`
   (or equivalent for `id`, `path`, `dataset`) at the top of each affected tool handler
-- [ ] Add one table-driven test case per handler that passes the zero-value and expects an error
+- [x] Add one table-driven test case per handler that passes the zero-value and expects an error
 
 #### R5: Verify `jsonschema` tag format produces correct schema
 
@@ -208,10 +208,10 @@ natural-language description in a single unkeyed string. Confirm what `google/js
 actually emits and whether `required` is honoured as a constraint or treated as description text.
 
 **Tasks:**
-- [ ] Write a short test that marshals the JSON schema for a typed input struct with a
+- [x] Write a short test that marshals the JSON schema for a typed input struct with a
   `required` int field and asserts the output contains `"required"` as a schema keyword
-- [ ] If not emitted correctly: update affected tags to the format the library supports
-- [ ] If emitted correctly: add a comment in `copilot-instructions.md` confirming the format
+- [x] If not emitted correctly: update affected tags to the format the library supports
+- [x] If emitted correctly: add a comment in `copilot-instructions.md` confirming the format
 
 ---
 

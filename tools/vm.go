@@ -202,14 +202,14 @@ func registerVMTools(s *mcp.Server, client *truenas.Client) {
 
 	type addVMDeviceInput struct {
 		VMID       int            `json:"vm_id"    jsonschema:"Numeric VM ID to attach the device to"`
-		DType      string         `json:"dtype"    jsonschema:"Device type: DISK | CDROM | NIC | DISPLAY. DISK attrs: {path:'zvol/pool/dataset' type:'VIRTIO'}. CDROM attrs: {path:'/mnt/Storage/isos/file.iso'}. NIC attrs: {type:'VIRTIO' nic_attach:'br0'}. DISPLAY attrs: {web:true port:5900}"`
+		DType      string         `json:"dtype"    jsonschema:"Device type: DISK | CDROM | NIC | DISPLAY | RAW. DISK attrs: {path:'zvol/pool/dataset' type:'VIRTIO'}. CDROM attrs: {path:'/mnt/Storage/isos/file.iso'}. NIC attrs: {type:'VIRTIO' nic_attach:'br0'}. DISPLAY attrs: {web:true port:5900}. RAW is an advanced passthrough type."`
 		Attributes map[string]any `json:"attributes" jsonschema:"Device-type-specific key-value pairs. See dtype description for examples."`
 		Order      *int           `json:"order,omitempty" jsonschema:"Optional boot/device order index"`
 	}
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "add_vm_device",
-		Description: "Attach a hardware device to a VM. Supports DISK (zvol-backed), CDROM (ISO file), NIC (virtio/e1000), and DISPLAY (VNC). The VM does not need to be stopped to add devices, but changes take effect on next boot.",
+		Description: "Attach a hardware device to a VM. Supports DISK (zvol-backed), CDROM (ISO file), NIC (virtio/e1000), DISPLAY (VNC), and RAW (advanced passthrough). The VM does not need to be stopped to add devices, but changes take effect on next boot.",
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p addVMDeviceInput) (*mcp.CallToolResult, any, error) {
 		if p.VMID <= 0 {
