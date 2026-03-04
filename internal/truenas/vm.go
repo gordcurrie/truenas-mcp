@@ -81,10 +81,7 @@ func (c *Client) ListVMs(ctx context.Context, opts ...ListOptions) ([]VM, error)
 	if len(opts) > 0 {
 		o = opts[0]
 	}
-	qs, err := buildQueryString(nil, o)
-	if err != nil {
-		return nil, fmt.Errorf("listing VMs: %w", err)
-	}
+	qs := buildQueryString(nil, o)
 	var vms []VM
 	if err := c.get(ctx, "/vm"+qs, &vms); err != nil {
 		return nil, fmt.Errorf("listing VMs: %w", err)

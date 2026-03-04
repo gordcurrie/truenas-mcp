@@ -1,9 +1,8 @@
 package truenas
 
 import (
-	"encoding/json"
-	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
 )
 
@@ -17,37 +16,35 @@ type ListOptions struct {
 }
 
 // buildQueryString constructs the URL query string (including the leading "?")
-// to append to a list endpoint.
+// to append to a TrueNAS list endpoint.
 //
-// filter, if non-empty, is serialised as the TrueNAS query-filters parameter.
-// opts.Limit and opts.Offset are included as a query-options JSON object when
-// either is non-zero.
+// TrueNAS SCALE REST API accepts filters and pagination as plain query
+// parameters — e.g. ?dataset=Storage&limit=10&offset=0. The JSON-encoded
+// query-filters / query-options blob format is not supported by GET endpoints.
 //
-// Returns ("", nil) when neither filter nor opts fields are set.
-func buildQueryString(filter [][]string, opts ListOptions) (string, error) {
+// filter elements must be three-element slices [field, "=", value]; only
+// equality filters are used in this codebase. Non-equality elements are
+// silently skipped.
+//
+// Returns "" when no filter fields are set and opts is zero.
+func buildQueryString(filter [][]string, opts ListOptions) string {
 	var parts []string
 
-	if len(filter) > 0 {
-		f, err := json.Marshal(filter)
-		if err != nil {
-			return "", fmt.Errorf("marshalling query filter: %w", err)
+	for _, f := range filter {
+		if len(f) == 3 && f[1] == "=" && f[0] != "" {
+			parts = append(parts, url.QueryEscape(f[0])+"="+url.QueryEscape(f[2]))
 		}
-		parts = append(parts, "query-filters="+url.QueryEscape(string(f)))
 	}
 
-	if opts.Limit > 0 || opts.Offset > 0 {
-		qo, err := json.Marshal(map[string]int{
-			"limit":  opts.Limit,
-			"offset": opts.Offset,
-		})
-		if err != nil {
-			return "", fmt.Errorf("marshalling query options: %w", err)
-		}
-		parts = append(parts, "query-options="+url.QueryEscape(string(qo)))
+	if opts.Limit > 0 {
+		parts = append(parts, "limit="+strconv.Itoa(opts.Limit))
+	}
+	if opts.Offset > 0 {
+		parts = append(parts, "offset="+strconv.Itoa(opts.Offset))
 	}
 
 	if len(parts) == 0 {
-		return "", nil
+		return ""
 	}
-	return "?" + strings.Join(parts, "&"), nil
+	return "?" + strings.Join(parts, "&")
 }

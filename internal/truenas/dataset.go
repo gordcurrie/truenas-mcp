@@ -65,10 +65,7 @@ func (c *Client) ListDatasets(ctx context.Context, pool string, opts ...ListOpti
 	if pool != "" {
 		filter = [][]string{{"pool", "=", pool}}
 	}
-	qs, err := buildQueryString(filter, o)
-	if err != nil {
-		return nil, fmt.Errorf("listing datasets: %w", err)
-	}
+	qs := buildQueryString(filter, o)
 	var datasets []Dataset
 	if err := c.get(ctx, "/pool/dataset"+qs, &datasets); err != nil {
 		return nil, fmt.Errorf("listing datasets: %w", err)

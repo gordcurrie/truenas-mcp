@@ -64,10 +64,7 @@ func (c *Client) ListSnapshots(ctx context.Context, dataset string, opts ...List
 	if dataset != "" {
 		filter = [][]string{{"dataset", "=", dataset}}
 	}
-	qs, err := buildQueryString(filter, o)
-	if err != nil {
-		return nil, fmt.Errorf("listing snapshots: %w", err)
-	}
+	qs := buildQueryString(filter, o)
 	var snapshots []Snapshot
 	if err := c.get(ctx, "/pool/snapshot"+qs, &snapshots); err != nil {
 		return nil, fmt.Errorf("listing snapshots: %w", err)
