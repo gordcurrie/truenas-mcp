@@ -27,6 +27,7 @@ See `PLAN.md` for the full project plan, decisions, and implementation order.
 - No global mutable state — inject dependencies
 - All exported types and functions must have doc comments
 - `json` tags on all API types; `jsonschema` tags on MCP tool input structs
+- **`jsonschema` tag format**: the entire tag value is treated as the field description. Do NOT prefix with `required,` — it will appear literally in the description. Required-ness is inferred automatically: fields without `omitempty` in their `json` tag are required; fields with `omitempty` are optional. Example: `json:"id" jsonschema:"Numeric pool ID"` — no `required,` prefix needed.
 - Table-driven tests using `t.Run` subtests
 - Use `gofumpt` formatting (stricter than `gofmt`)
 

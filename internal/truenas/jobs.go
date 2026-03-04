@@ -42,6 +42,11 @@ func (c *Client) getJobs(ctx context.Context, id int) (*Job, error) {
 // (SUCCESS, FAILED, or ABORTED) or the context is cancelled.
 // It returns the completed Job or an error if the job failed.
 func (c *Client) PollJob(ctx context.Context, id int) (*Job, error) {
+	// Use a single timer for the entire loop so that exiting early (context
+	// cancelled, job complete) does not leak an unexecuted time.After timer.
+	timer := time.NewTimer(jobPollInterval)
+	defer timer.Stop()
+
 	for {
 		job, err := c.getJobs(ctx, id)
 		if err != nil {
@@ -60,7 +65,9 @@ func (c *Client) PollJob(ctx context.Context, id int) (*Job, error) {
 		select {
 		case <-ctx.Done():
 			return nil, fmt.Errorf("polling job %d: %w", id, ctx.Err())
-		case <-time.After(jobPollInterval):
+		case <-timer.C:
+			// Channel drained by the select; safe to Reset.
+			timer.Reset(jobPollInterval)
 		}
 	}
 }

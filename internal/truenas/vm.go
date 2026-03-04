@@ -155,8 +155,12 @@ func (c *Client) UpdateVM(ctx context.Context, id int, params *UpdateVMParams) (
 	if params.Name != "" && !vmNameRe.MatchString(params.Name) {
 		return nil, fmt.Errorf("updating VM %d: name must contain only alphanumeric characters", id)
 	}
+	// Memory uses omitempty, so 0 means "leave unchanged" and is never serialised.
+	// Only explicitly negative values are rejected — they would be nonsensical and
+	// are distinct from 0 (which an LLM would send if it wants to clear the field,
+	// which is unsupported; the tool description notes this limitation).
 	if params.Memory < 0 {
-		return nil, fmt.Errorf("updating VM %d: memory must be greater than 0 when provided", id)
+		return nil, fmt.Errorf("updating VM %d: memory must be positive when provided", id)
 	}
 	var vm VM
 	if err := c.put(ctx, fmt.Sprintf("/vm/id/%d", id), params, &vm); err != nil {

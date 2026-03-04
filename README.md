@@ -69,7 +69,6 @@ An MCP server that exposes [TrueNAS SCALE](https://www.truenas.com/truenas-scale
 | `list_snapshots` | List ZFS snapshots, optionally filtered by dataset path | `dataset` (string, optional) |
 | `get_snapshot` | Get detailed information about a specific snapshot | `id` (string, e.g. `Storage/backups@before-upgrade`) |
 | `create_snapshot` | Create a new ZFS snapshot of a dataset | `dataset`, `name` (required); `recursive` (bool, optional) |
-| `rollback_snapshot` | Roll a dataset back to a previous snapshot (destructive — post-snapshot changes are lost) | `id` (required); `recursive`, `recursive_clones`, `force` (optional) |
 
 ### Destructive (requires `TRUENAS_ALLOW_DESTRUCTIVE=true`)
 
@@ -79,6 +78,7 @@ An MCP server that exposes [TrueNAS SCALE](https://www.truenas.com/truenas-scale
 | `delete_app` | Permanently delete a TrueNAS app | `name` (string); `confirmed: true` (required) |
 | `delete_snapshot` | Permanently delete a ZFS snapshot | `id` (string, e.g. `Storage/backups@before-upgrade`); `confirmed: true` (required) |
 | `delete_vm_device` | Remove a hardware device from a VM by device ID | `id` (int); `confirmed: true` (required) |
+| `rollback_snapshot` | Roll a dataset back to a previous snapshot — **all data written after the snapshot is permanently destroyed** | `id` (string); `confirmed: true` (required); `recursive`, `recursive_clones`, `force` (optional) |
 
 ## Installation
 

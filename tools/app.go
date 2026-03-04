@@ -2,6 +2,7 @@ package tools
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/gordcurrie/truenas-mcp/internal/truenas"
@@ -24,13 +25,16 @@ func registerAppTools(s *mcp.Server, client *truenas.Client) {
 	})
 
 	type getAppInput struct {
-		Name string `json:"name" jsonschema:"required,App name (as shown in the TrueNAS UI)"`
+		Name string `json:"name" jsonschema:"App name (as shown in the TrueNAS UI)"`
 	}
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "get_app",
 		Description: "Get detailed information about a specific app by name.",
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p getAppInput) (*mcp.CallToolResult, any, error) {
+		if p.Name == "" {
+			return nil, nil, errors.New("get_app: name must not be empty")
+		}
 		app, err := client.GetApp(ctx, p.Name)
 		if err != nil {
 			return nil, nil, fmt.Errorf("get_app: %w", err)
@@ -39,13 +43,16 @@ func registerAppTools(s *mcp.Server, client *truenas.Client) {
 	})
 
 	type startAppInput struct {
-		Name string `json:"name" jsonschema:"required,App name (as shown in the TrueNAS UI)"`
+		Name string `json:"name" jsonschema:"App name (as shown in the TrueNAS UI)"`
 	}
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "start_app",
 		Description: "Start an app by name. Returns the async job ID immediately (non-blocking).",
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p startAppInput) (*mcp.CallToolResult, any, error) {
+		if p.Name == "" {
+			return nil, nil, errors.New("start_app: name must not be empty")
+		}
 		jobID, err := client.StartApp(ctx, p.Name)
 		if err != nil {
 			return nil, nil, fmt.Errorf("start_app: %w", err)
@@ -54,13 +61,16 @@ func registerAppTools(s *mcp.Server, client *truenas.Client) {
 	})
 
 	type stopAppInput struct {
-		Name string `json:"name" jsonschema:"required,App name (as shown in the TrueNAS UI)"`
+		Name string `json:"name" jsonschema:"App name (as shown in the TrueNAS UI)"`
 	}
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "stop_app",
 		Description: "Stop a running app by name. Returns the async job ID immediately (non-blocking).",
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p stopAppInput) (*mcp.CallToolResult, any, error) {
+		if p.Name == "" {
+			return nil, nil, errors.New("stop_app: name must not be empty")
+		}
 		jobID, err := client.StopApp(ctx, p.Name)
 		if err != nil {
 			return nil, nil, fmt.Errorf("stop_app: %w", err)
@@ -69,13 +79,16 @@ func registerAppTools(s *mcp.Server, client *truenas.Client) {
 	})
 
 	type restartAppInput struct {
-		Name string `json:"name" jsonschema:"required,App name (as shown in the TrueNAS UI)"`
+		Name string `json:"name" jsonschema:"App name (as shown in the TrueNAS UI)"`
 	}
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "restart_app",
 		Description: "Restart an app by name (redeploy). Returns the async job ID immediately (non-blocking).",
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p restartAppInput) (*mcp.CallToolResult, any, error) {
+		if p.Name == "" {
+			return nil, nil, errors.New("restart_app: name must not be empty")
+		}
 		jobID, err := client.RestartApp(ctx, p.Name)
 		if err != nil {
 			return nil, nil, fmt.Errorf("restart_app: %w", err)
@@ -97,8 +110,8 @@ func registerAppTools(s *mcp.Server, client *truenas.Client) {
 	})
 
 	type installAppInput struct {
-		AppName    string `json:"app_name"          jsonschema:"required,Instance name for the new app (lowercase, hyphens allowed, max 40 chars)"`
-		CatalogApp string `json:"catalog_app"       jsonschema:"required,Catalog app to install (e.g. jellyfin)"`
+		AppName    string `json:"app_name"          jsonschema:"Instance name for the new app (lowercase, hyphens allowed, max 40 chars)"`
+		CatalogApp string `json:"catalog_app"       jsonschema:"Catalog app to install (e.g. jellyfin)"`
 		Train      string `json:"train,omitempty"   jsonschema:"Catalog train (default: stable)"`
 		Version    string `json:"version,omitempty" jsonschema:"App version to install (default: latest)"`
 	}
@@ -107,6 +120,12 @@ func registerAppTools(s *mcp.Server, client *truenas.Client) {
 		Description: "Install a catalog app from the TrueNAS app catalog. Returns the async job ID immediately (non-blocking).",
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p installAppInput) (*mcp.CallToolResult, any, error) {
+		if p.AppName == "" {
+			return nil, nil, errors.New("install_app: app_name must not be empty")
+		}
+		if p.CatalogApp == "" {
+			return nil, nil, errors.New("install_app: catalog_app must not be empty")
+		}
 		train := p.Train
 		if train == "" {
 			train = "stable"
@@ -128,14 +147,20 @@ func registerAppTools(s *mcp.Server, client *truenas.Client) {
 	})
 
 	type installCustomAppInput struct {
-		AppName                   string `json:"app_name"                     jsonschema:"required,Instance name for the new app (lowercase, hyphens allowed, max 40 chars)"`
-		CustomComposeConfigString string `json:"custom_compose_config_string"  jsonschema:"required,Docker Compose YAML defining the services to deploy"`
+		AppName                   string `json:"app_name"                     jsonschema:"Instance name for the new app (lowercase, hyphens allowed, max 40 chars)"`
+		CustomComposeConfigString string `json:"custom_compose_config_string"  jsonschema:"Docker Compose YAML defining the services to deploy"`
 	}
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "install_custom_app",
 		Description: "Install a custom Docker Compose app on TrueNAS SCALE. Returns the async job ID immediately (non-blocking).",
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p installCustomAppInput) (*mcp.CallToolResult, any, error) {
+		if p.AppName == "" {
+			return nil, nil, errors.New("install_custom_app: app_name must not be empty")
+		}
+		if p.CustomComposeConfigString == "" {
+			return nil, nil, errors.New("install_custom_app: custom_compose_config_string must not be empty")
+		}
 		jobID, err := client.CreateApp(ctx, &truenas.CreateAppParams{
 			AppName:                   p.AppName,
 			CustomApp:                 true,
@@ -148,7 +173,7 @@ func registerAppTools(s *mcp.Server, client *truenas.Client) {
 	})
 
 	type upgradeAppInput struct {
-		Name    string `json:"name"              jsonschema:"required,App name (as shown in the TrueNAS UI)"`
+		Name    string `json:"name"              jsonschema:"App name (as shown in the TrueNAS UI)"`
 		Version string `json:"version,omitempty" jsonschema:"Target version to upgrade to (defaults to latest available)"`
 	}
 	mcp.AddTool(s, &mcp.Tool{
@@ -156,6 +181,9 @@ func registerAppTools(s *mcp.Server, client *truenas.Client) {
 		Description: "Upgrade an installed app to the specified version, or to the latest available version if version is omitted. Returns the async job ID immediately (non-blocking).",
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p upgradeAppInput) (*mcp.CallToolResult, any, error) {
+		if p.Name == "" {
+			return nil, nil, errors.New("upgrade_app: name must not be empty")
+		}
 		jobID, err := client.UpgradeApp(ctx, p.Name, p.Version)
 		if err != nil {
 			return nil, nil, fmt.Errorf("upgrade_app: %w", err)
@@ -164,13 +192,16 @@ func registerAppTools(s *mcp.Server, client *truenas.Client) {
 	})
 
 	type upgradeSummaryInput struct {
-		Name string `json:"name" jsonschema:"required,App name (as shown in the TrueNAS UI)"`
+		Name string `json:"name" jsonschema:"App name (as shown in the TrueNAS UI)"`
 	}
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "upgrade_summary",
 		Description: "Get upgrade availability and changelog for an installed app.",
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p upgradeSummaryInput) (*mcp.CallToolResult, any, error) {
+		if p.Name == "" {
+			return nil, nil, errors.New("upgrade_summary: name must not be empty")
+		}
 		summary, err := client.GetUpgradeSummary(ctx, p.Name)
 		if err != nil {
 			return nil, nil, fmt.Errorf("upgrade_summary: %w", err)
@@ -179,14 +210,20 @@ func registerAppTools(s *mcp.Server, client *truenas.Client) {
 	})
 
 	type rollbackAppInput struct {
-		Name    string `json:"name"    jsonschema:"required,App name (as shown in the TrueNAS UI)"`
-		Version string `json:"version" jsonschema:"required,Version to roll back to"`
+		Name    string `json:"name"    jsonschema:"App name (as shown in the TrueNAS UI)"`
+		Version string `json:"version" jsonschema:"Version to roll back to"`
 	}
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "rollback_app",
 		Description: "Roll an app back to a previous version. Returns the async job ID immediately (non-blocking).",
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p rollbackAppInput) (*mcp.CallToolResult, any, error) {
+		if p.Name == "" {
+			return nil, nil, errors.New("rollback_app: name must not be empty")
+		}
+		if p.Version == "" {
+			return nil, nil, errors.New("rollback_app: version must not be empty")
+		}
 		jobID, err := client.RollbackApp(ctx, p.Name, p.Version)
 		if err != nil {
 			return nil, nil, fmt.Errorf("rollback_app: %w", err)

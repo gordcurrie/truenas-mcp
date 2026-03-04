@@ -40,7 +40,7 @@ func NewClient(apiURL, apiKey string, insecure bool) (*Client, error) {
 	transport := &http.Transport{}
 	if insecure {
 		transport.TLSClientConfig = &tls.Config{
-			InsecureSkipVerify: true, /* #nosec G402 */ //nolint:gosec // G402: only set when PROXMOX_INSECURE=true; user must explicitly opt in
+			InsecureSkipVerify: true, /* #nosec G402 */ //nolint:gosec // G402: InsecureSkipVerify is only set when TRUENAS_INSECURE=true, which the user must explicitly opt into. Default is secure (verify enabled).
 		}
 	}
 
@@ -70,8 +70,8 @@ func (c *Client) get(ctx context.Context, path string, result any) error {
 	return c.decode(resp.Body, result)
 }
 
-// post performs an authenticated POST request to path (relative to baseURL).
-// The Proxmox {"data": ...} envelope is unwrapped and decoded into result.
+// post performs an authenticated POST request to path (relative to baseURL)
+// and JSON-decodes the result into result (which must be a pointer).
 // To POST with a request body, use postWithBody.
 func (c *Client) post(ctx context.Context, path string, result any) error {
 	resp, err := c.do(ctx, http.MethodPost, path, nil)
@@ -159,7 +159,7 @@ func (c *Client) do(ctx context.Context, method, path string, body io.Reader) (*
 		req.Header.Set("Content-Type", "application/json")
 	}
 
-	resp, err := c.httpClient.Do(req) /* #nosec G704 */ //nolint:gosec // G704: URL is constructed from PROXMOX_API_URL which the user must explicitly supply
+	resp, err := c.httpClient.Do(req) /* #nosec G107 */ //nolint:gosec // G107: URL is constructed from TRUENAS_API_URL which the user must explicitly supply
 	if err != nil {
 		return nil, fmt.Errorf("executing request %s %s: %w", method, path, err)
 	}
