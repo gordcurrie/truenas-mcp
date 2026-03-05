@@ -49,9 +49,10 @@ func TestListDatasets_success(t *testing.T) {
 func TestListDatasets_filterByPool(t *testing.T) {
 	t.Parallel()
 
-	all := []Dataset{
+	// Only the Storage pool dataset is returned by the simulated server,
+	// matching what TrueNAS does when a pool direct query param is sent.
+	want := []Dataset{
 		{ID: "Storage/backups", Name: "backups", Pool: "Storage", Type: "FILESYSTEM"},
-		{ID: "apps/data", Name: "data", Pool: "apps", Type: "FILESYSTEM"},
 	}
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -59,8 +60,21 @@ func TestListDatasets_filterByPool(t *testing.T) {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
+		// The client must pass pool as a direct query param, not as a
+		// JSON-encoded query-filters blob, which TrueNAS REST does not support.
+		pool := r.URL.Query().Get("pool")
+		if pool == "" {
+			t.Error("expected pool query param but got none")
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		if pool != "Storage" {
+			t.Errorf("pool param = %q, want %q", pool, "Storage")
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(all); err != nil {
+		if err := json.NewEncoder(w).Encode(want); err != nil {
 			t.Errorf("encoding response: %v", err)
 		}
 	}))

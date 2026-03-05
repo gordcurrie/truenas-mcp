@@ -33,9 +33,21 @@ type Pool struct {
 }
 
 // ListPools returns all ZFS pools on the system.
-func (c *Client) ListPools(ctx context.Context) ([]Pool, error) {
+// Pass a ListOptions value to apply server-side pagination (limit / offset).
+func (c *Client) ListPools(ctx context.Context, opts ...ListOptions) ([]Pool, error) {
+	if len(opts) > 1 {
+		return nil, fmt.Errorf("listing pools: at most one ListOptions value may be provided")
+	}
+	var o ListOptions
+	if len(opts) == 1 {
+		o = opts[0]
+	}
+	if err := validateListOptions(o); err != nil {
+		return nil, fmt.Errorf("listing pools: %w", err)
+	}
+	qs := buildQueryString(nil, o)
 	var pools []Pool
-	if err := c.get(ctx, "/pool", &pools); err != nil {
+	if err := c.get(ctx, "/pool"+qs, &pools); err != nil {
 		return nil, fmt.Errorf("listing pools: %w", err)
 	}
 	return pools, nil

@@ -2,7 +2,6 @@ package truenas
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/url"
 	"strings"
@@ -55,19 +54,25 @@ func snapshotIDPath(id string) string {
 // If dataset is non-empty, a server-side query filter is applied so that only
 // snapshots for that dataset are transferred over the wire. This avoids fetching
 // potentially thousands of snapshots when only one dataset's history is needed.
-func (c *Client) ListSnapshots(ctx context.Context, dataset string) ([]Snapshot, error) {
-	path := "/pool/snapshot"
-	if dataset != "" {
-		// Build the TrueNAS query-filter: [["dataset", "=", "<value>"]]
-		filter, err := json.Marshal([][]string{{"dataset", "=", dataset}})
-		if err != nil {
-			return nil, fmt.Errorf("building snapshot query filter: %w", err)
-		}
-		path += "?query-filters=" + url.QueryEscape(string(filter))
+// Pass a ListOptions value to apply server-side pagination (limit / offset).
+func (c *Client) ListSnapshots(ctx context.Context, dataset string, opts ...ListOptions) ([]Snapshot, error) {
+	if len(opts) > 1 {
+		return nil, fmt.Errorf("listing snapshots: at most one ListOptions value may be provided")
 	}
-
+	var o ListOptions
+	if len(opts) == 1 {
+		o = opts[0]
+	}
+	if err := validateListOptions(o); err != nil {
+		return nil, fmt.Errorf("listing snapshots: %w", err)
+	}
+	var filter [][]string
+	if dataset != "" {
+		filter = [][]string{{"dataset", "=", dataset}}
+	}
+	qs := buildQueryString(filter, o)
 	var snapshots []Snapshot
-	if err := c.get(ctx, path, &snapshots); err != nil {
+	if err := c.get(ctx, "/pool/snapshot"+qs, &snapshots); err != nil {
 		return nil, fmt.Errorf("listing snapshots: %w", err)
 	}
 	return snapshots, nil

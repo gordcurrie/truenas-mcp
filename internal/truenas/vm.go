@@ -75,9 +75,21 @@ type UpdateVMParams struct {
 }
 
 // ListVMs returns all virtual machines configured on the TrueNAS SCALE system.
-func (c *Client) ListVMs(ctx context.Context) ([]VM, error) {
+// Pass a ListOptions value to apply server-side pagination (limit / offset).
+func (c *Client) ListVMs(ctx context.Context, opts ...ListOptions) ([]VM, error) {
+	if len(opts) > 1 {
+		return nil, fmt.Errorf("listing VMs: at most one ListOptions value may be provided")
+	}
+	var o ListOptions
+	if len(opts) == 1 {
+		o = opts[0]
+	}
+	if err := validateListOptions(o); err != nil {
+		return nil, fmt.Errorf("listing VMs: %w", err)
+	}
+	qs := buildQueryString(nil, o)
 	var vms []VM
-	if err := c.get(ctx, "/vm", &vms); err != nil {
+	if err := c.get(ctx, "/vm"+qs, &vms); err != nil {
 		return nil, fmt.Errorf("listing VMs: %w", err)
 	}
 	return vms, nil

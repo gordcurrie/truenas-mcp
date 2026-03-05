@@ -16,6 +16,8 @@ func registerSnapshotTools(s *mcp.Server, client *truenas.Client) {
 		// Dataset filters results to snapshots of this dataset (e.g. "Storage/backups").
 		// Leave empty to return snapshots from all datasets.
 		Dataset string `json:"dataset,omitempty" jsonschema:"Full dataset path to filter by; leave empty for all datasets"`
+		Limit   int    `json:"limit,omitempty"   jsonschema:"Maximum number of snapshots to return; 0 means no limit"`
+		Offset  int    `json:"offset,omitempty"  jsonschema:"Number of snapshots to skip; 0 means start from the beginning"`
 	}
 
 	mcp.AddTool(s, &mcp.Tool{
@@ -23,7 +25,7 @@ func registerSnapshotTools(s *mcp.Server, client *truenas.Client) {
 		Description: "List ZFS snapshots. Optionally filter by dataset path (e.g. \"Storage/backups\").",
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p listSnapshotsInput) (*mcp.CallToolResult, any, error) {
-		snaps, err := client.ListSnapshots(ctx, p.Dataset)
+		snaps, err := client.ListSnapshots(ctx, p.Dataset, truenas.ListOptions{Limit: p.Limit, Offset: p.Offset})
 		if err != nil {
 			return nil, nil, fmt.Errorf("list_snapshots: %w", err)
 		}
@@ -46,6 +48,9 @@ func registerSnapshotTools(s *mcp.Server, client *truenas.Client) {
 		}
 		snap, err := client.GetSnapshot(ctx, p.ID)
 		if err != nil {
+			if errors.Is(err, truenas.ErrNotFound) {
+				return nil, nil, fmt.Errorf("get_snapshot: snapshot %q not found", p.ID)
+			}
 			return nil, nil, fmt.Errorf("get_snapshot: %w", err)
 		}
 		return jsonResult(snap)

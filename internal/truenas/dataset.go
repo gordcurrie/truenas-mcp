@@ -52,25 +52,31 @@ type CreateDatasetParams struct {
 	Volsize int64 `json:"volsize,omitempty"`
 }
 
-// ListDatasets returns all ZFS datasets and zvols visible to the API.
-// If pool is non-empty, only datasets whose Pool field matches are returned.
-func (c *Client) ListDatasets(ctx context.Context, pool string) ([]Dataset, error) {
-	var datasets []Dataset
-	if err := c.get(ctx, "/pool/dataset", &datasets); err != nil {
+// ListDatasets returns ZFS datasets and zvols visible to the API.
+// If pool is non-empty, a server-side query filter is applied so that only
+// datasets belonging to that pool are transferred over the wire.
+// Pass a ListOptions value to apply server-side pagination (limit / offset).
+func (c *Client) ListDatasets(ctx context.Context, pool string, opts ...ListOptions) ([]Dataset, error) {
+	if len(opts) > 1 {
+		return nil, fmt.Errorf("listing datasets: at most one ListOptions value may be provided")
+	}
+	var o ListOptions
+	if len(opts) == 1 {
+		o = opts[0]
+	}
+	if err := validateListOptions(o); err != nil {
 		return nil, fmt.Errorf("listing datasets: %w", err)
 	}
-
-	if pool == "" {
-		return datasets, nil
+	var filter [][]string
+	if pool != "" {
+		filter = [][]string{{"pool", "=", pool}}
 	}
-
-	filtered := make([]Dataset, 0, len(datasets))
-	for i := range datasets {
-		if datasets[i].Pool == pool {
-			filtered = append(filtered, datasets[i])
-		}
+	qs := buildQueryString(filter, o)
+	var datasets []Dataset
+	if err := c.get(ctx, "/pool/dataset"+qs, &datasets); err != nil {
+		return nil, fmt.Errorf("listing datasets: %w", err)
 	}
-	return filtered, nil
+	return datasets, nil
 }
 
 // GetDataset returns a single dataset by its full path ID (e.g. "Storage/backups").

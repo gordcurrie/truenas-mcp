@@ -12,14 +12,17 @@ import (
 
 // registerVMTools registers all VM-related MCP tools onto the server.
 func registerVMTools(s *mcp.Server, client *truenas.Client) {
-	type listVMsInput struct{}
+	type listVMsInput struct {
+		Limit  int `json:"limit,omitempty"  jsonschema:"Maximum number of VMs to return; 0 means no limit"`
+		Offset int `json:"offset,omitempty" jsonschema:"Number of VMs to skip; 0 means start from the beginning"`
+	}
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "list_vms",
 		Description: "List all virtual machines configured on the TrueNAS SCALE system, including their state (RUNNING/STOPPED), CPU, and memory.",
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true},
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ listVMsInput) (*mcp.CallToolResult, any, error) {
-		vms, err := client.ListVMs(ctx)
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, p listVMsInput) (*mcp.CallToolResult, any, error) {
+		vms, err := client.ListVMs(ctx, truenas.ListOptions{Limit: p.Limit, Offset: p.Offset})
 		if err != nil {
 			return nil, nil, fmt.Errorf("list_vms: %w", err)
 		}
@@ -40,6 +43,9 @@ func registerVMTools(s *mcp.Server, client *truenas.Client) {
 		}
 		vm, err := client.GetVM(ctx, p.ID)
 		if err != nil {
+			if errors.Is(err, truenas.ErrNotFound) {
+				return nil, nil, fmt.Errorf("get_vm: VM %d not found", p.ID)
+			}
 			return nil, nil, fmt.Errorf("get_vm: %w", err)
 		}
 		return jsonResult(vm)
@@ -122,6 +128,12 @@ func registerVMTools(s *mcp.Server, client *truenas.Client) {
 		Description: "Create a new virtual machine. At minimum provide name and memory (in MiB). Returns the created VM. Note: VM names must be alphanumeric only — hyphens, underscores, and other special characters are not allowed.",
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p createVMInput) (*mcp.CallToolResult, any, error) {
+		if p.Name == "" {
+			return nil, nil, errors.New("create_vm: name must not be empty")
+		}
+		if p.Memory <= 0 {
+			return nil, nil, errors.New("create_vm: memory must be greater than 0")
+		}
 		vm, err := client.CreateVM(ctx, &truenas.CreateVMParams{
 			Name:            p.Name,
 			Memory:          p.Memory,

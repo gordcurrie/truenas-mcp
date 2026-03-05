@@ -11,13 +11,16 @@ import (
 
 // registerAppTools adds TrueNAS app and Docker image MCP tools to the server.
 func registerAppTools(s *mcp.Server, client *truenas.Client) {
-	type listAppsInput struct{}
+	type listAppsInput struct {
+		Limit  int `json:"limit,omitempty"  jsonschema:"Maximum number of apps to return; 0 means no limit"`
+		Offset int `json:"offset,omitempty" jsonschema:"Number of apps to skip; 0 means start from the beginning"`
+	}
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "list_apps",
 		Description: "List all installed apps managed by TrueNAS SCALE.",
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true},
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ listAppsInput) (*mcp.CallToolResult, any, error) {
-		apps, err := client.ListApps(ctx)
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, p listAppsInput) (*mcp.CallToolResult, any, error) {
+		apps, err := client.ListApps(ctx, truenas.ListOptions{Limit: p.Limit, Offset: p.Offset})
 		if err != nil {
 			return nil, nil, fmt.Errorf("list_apps: %w", err)
 		}
@@ -37,6 +40,9 @@ func registerAppTools(s *mcp.Server, client *truenas.Client) {
 		}
 		app, err := client.GetApp(ctx, p.Name)
 		if err != nil {
+			if errors.Is(err, truenas.ErrNotFound) {
+				return nil, nil, fmt.Errorf("get_app: app %q not found", p.Name)
+			}
 			return nil, nil, fmt.Errorf("get_app: %w", err)
 		}
 		return jsonResult(app)

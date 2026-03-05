@@ -15,7 +15,9 @@ func registerDatasetTools(s *mcp.Server, client *truenas.Client) {
 	type listDatasetsInput struct {
 		// Pool filters the results to datasets belonging to this pool name.
 		// Leave empty to return datasets from all pools.
-		Pool string `json:"pool,omitempty" jsonschema:"Pool name to filter by; leave empty for all pools"`
+		Pool   string `json:"pool,omitempty"   jsonschema:"Pool name to filter by; leave empty for all pools"`
+		Limit  int    `json:"limit,omitempty"  jsonschema:"Maximum number of datasets to return; 0 means no limit"`
+		Offset int    `json:"offset,omitempty" jsonschema:"Number of datasets to skip; 0 means start from the beginning"`
 	}
 
 	mcp.AddTool(s, &mcp.Tool{
@@ -23,7 +25,7 @@ func registerDatasetTools(s *mcp.Server, client *truenas.Client) {
 		Description: "List ZFS datasets and zvols. Optionally filter by pool name.",
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p listDatasetsInput) (*mcp.CallToolResult, any, error) {
-		datasets, err := client.ListDatasets(ctx, p.Pool)
+		datasets, err := client.ListDatasets(ctx, p.Pool, truenas.ListOptions{Limit: p.Limit, Offset: p.Offset})
 		if err != nil {
 			return nil, nil, fmt.Errorf("list_datasets: %w", err)
 		}
@@ -45,6 +47,9 @@ func registerDatasetTools(s *mcp.Server, client *truenas.Client) {
 		}
 		dataset, err := client.GetDataset(ctx, p.ID)
 		if err != nil {
+			if errors.Is(err, truenas.ErrNotFound) {
+				return nil, nil, fmt.Errorf("get_dataset: dataset %q not found", p.ID)
+			}
 			return nil, nil, fmt.Errorf("get_dataset: %w", err)
 		}
 		return jsonResult(dataset)

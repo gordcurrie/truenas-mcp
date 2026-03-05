@@ -40,10 +40,10 @@ vulncheck:
 test:
 	go test -race -count=1 ./...
 
-## build – compile the binary
+## build – compile the binary, injecting the version from the current git tag
 build:
 	@mkdir -p bin
-	go build -o $(BINARY) $(CMD)
+	go build -ldflags "-X main.version=$$(git describe --tags --always --dirty 2>/dev/null || echo dev)" -o $(BINARY) $(CMD)
 
 ## check – run all quality gates in order (pre-commit gate)
 check: fix fmt vet lint sec vulncheck test build
