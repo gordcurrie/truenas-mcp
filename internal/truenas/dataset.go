@@ -61,6 +61,9 @@ func (c *Client) ListDatasets(ctx context.Context, pool string, opts ...ListOpti
 	if len(opts) > 0 {
 		o = opts[0]
 	}
+	if err := validateListOptions(o); err != nil {
+		return nil, fmt.Errorf("listing datasets: %w", err)
+	}
 	var filter [][]string
 	if pool != "" {
 		filter = [][]string{{"pool", "=", pool}}

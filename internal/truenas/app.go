@@ -78,6 +78,9 @@ func (c *Client) ListApps(ctx context.Context, opts ...ListOptions) ([]App, erro
 	if len(opts) > 0 {
 		o = opts[0]
 	}
+	if err := validateListOptions(o); err != nil {
+		return nil, fmt.Errorf("listing apps: %w", err)
+	}
 	qs := buildQueryString(nil, o)
 	var apps []App
 	if err := c.get(ctx, "/app"+qs, &apps); err != nil {

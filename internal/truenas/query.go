@@ -1,6 +1,7 @@
 package truenas
 
 import (
+	"fmt"
 	"net/url"
 	"strconv"
 	"strings"
@@ -13,6 +14,19 @@ type ListOptions struct {
 	Limit int
 	// Offset skips the first N results. Zero means start from the beginning.
 	Offset int
+}
+
+// validateListOptions returns an error if opts contains negative pagination values.
+// Callers must validate before passing opts to buildQueryString so that negative
+// values are caught early rather than silently treated as "no constraint".
+func validateListOptions(opts ListOptions) error {
+	if opts.Limit < 0 {
+		return fmt.Errorf("limit must not be negative, got %d", opts.Limit)
+	}
+	if opts.Offset < 0 {
+		return fmt.Errorf("offset must not be negative, got %d", opts.Offset)
+	}
+	return nil
 }
 
 // buildQueryString constructs the URL query string (including the leading "?")

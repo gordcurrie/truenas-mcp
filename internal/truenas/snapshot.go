@@ -60,6 +60,9 @@ func (c *Client) ListSnapshots(ctx context.Context, dataset string, opts ...List
 	if len(opts) > 0 {
 		o = opts[0]
 	}
+	if err := validateListOptions(o); err != nil {
+		return nil, fmt.Errorf("listing snapshots: %w", err)
+	}
 	var filter [][]string
 	if dataset != "" {
 		filter = [][]string{{"dataset", "=", dataset}}

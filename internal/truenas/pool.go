@@ -39,6 +39,9 @@ func (c *Client) ListPools(ctx context.Context, opts ...ListOptions) ([]Pool, er
 	if len(opts) > 0 {
 		o = opts[0]
 	}
+	if err := validateListOptions(o); err != nil {
+		return nil, fmt.Errorf("listing pools: %w", err)
+	}
 	qs := buildQueryString(nil, o)
 	var pools []Pool
 	if err := c.get(ctx, "/pool"+qs, &pools); err != nil {
