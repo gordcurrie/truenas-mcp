@@ -56,8 +56,11 @@ func snapshotIDPath(id string) string {
 // potentially thousands of snapshots when only one dataset's history is needed.
 // Pass a ListOptions value to apply server-side pagination (limit / offset).
 func (c *Client) ListSnapshots(ctx context.Context, dataset string, opts ...ListOptions) ([]Snapshot, error) {
+	if len(opts) > 1 {
+		return nil, fmt.Errorf("listing snapshots: at most one ListOptions value may be provided")
+	}
 	var o ListOptions
-	if len(opts) > 0 {
+	if len(opts) == 1 {
 		o = opts[0]
 	}
 	if err := validateListOptions(o); err != nil {

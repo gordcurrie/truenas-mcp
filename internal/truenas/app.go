@@ -74,8 +74,11 @@ type AppUpgradeSummary struct {
 // ListApps returns all installed apps on the TrueNAS SCALE system.
 // Pass a ListOptions value to apply server-side pagination (limit / offset).
 func (c *Client) ListApps(ctx context.Context, opts ...ListOptions) ([]App, error) {
+	if len(opts) > 1 {
+		return nil, fmt.Errorf("listing apps: at most one ListOptions value may be provided")
+	}
 	var o ListOptions
-	if len(opts) > 0 {
+	if len(opts) == 1 {
 		o = opts[0]
 	}
 	if err := validateListOptions(o); err != nil {
