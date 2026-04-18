@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 )
 
@@ -25,16 +23,11 @@ func TestListPools_success(t *testing.T) {
 		},
 	}
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/pool" {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(want); err != nil {
-			t.Errorf("encoding response: %v", err)
-		}
-	}))
+	srv := wsTestServer(t, map[string]methodHandler{
+		"pool.query": func(_ json.RawMessage) (any, *rpcError) {
+			return want, nil
+		},
+	})
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
@@ -64,16 +57,11 @@ func TestGetPool_success(t *testing.T) {
 		Size:    31988916420608,
 	}
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/pool/id/1" {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(want); err != nil {
-			t.Errorf("encoding response: %v", err)
-		}
-	}))
+	srv := wsTestServer(t, map[string]methodHandler{
+		"pool.get_instance": func(_ json.RawMessage) (any, *rpcError) {
+			return want, nil
+		},
+	})
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
@@ -92,13 +80,15 @@ func TestGetPool_success(t *testing.T) {
 func TestGetPool_notFound(t *testing.T) {
 	t.Parallel()
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusNotFound)
-	}))
+	srv := wsTestServer(t, map[string]methodHandler{
+		"pool.get_instance": func(_ json.RawMessage) (any, *rpcError) {
+			return nil, &rpcError{Code: -32001, Message: "not found"}
+		},
+	})
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
-	_, err := c.GetPool(context.Background(), 99)
+	_, err := c.GetPool(context.Background(), 999)
 	if !errors.Is(err, ErrNotFound) {
 		t.Errorf("expected ErrNotFound, got %v", err)
 	}

@@ -3,7 +3,6 @@ package truenas
 import (
 	"context"
 	"fmt"
-	"net/url"
 )
 
 // DatasetValue is a TrueNAS property wrapper returned for most dataset fields
@@ -71,21 +70,17 @@ func (c *Client) ListDatasets(ctx context.Context, pool string, opts ...ListOpti
 	if pool != "" {
 		filter = [][]string{{"pool", "=", pool}}
 	}
-	qs := buildQueryString(filter, o)
 	var datasets []Dataset
-	if err := c.get(ctx, "/pool/dataset"+qs, &datasets); err != nil {
+	if err := c.call(ctx, "pool.dataset.query", buildQueryParams(filter, o), &datasets); err != nil {
 		return nil, fmt.Errorf("listing datasets: %w", err)
 	}
 	return datasets, nil
 }
 
 // GetDataset returns a single dataset by its full path ID (e.g. "Storage/backups").
-// The ID is URL-path-encoded before being inserted into the request URL so that
-// slashes in the path are transmitted correctly.
 func (c *Client) GetDataset(ctx context.Context, id string) (*Dataset, error) {
 	var dataset Dataset
-	path := "/pool/dataset/id/" + url.PathEscape(id)
-	if err := c.get(ctx, path, &dataset); err != nil {
+	if err := c.call(ctx, "pool.dataset.get_instance", []any{id}, &dataset); err != nil {
 		return nil, fmt.Errorf("getting dataset %q: %w", id, err)
 	}
 	return &dataset, nil
@@ -106,7 +101,7 @@ func (c *Client) CreateDataset(ctx context.Context, params *CreateDatasetParams)
 	}
 
 	var dataset Dataset
-	if err := c.postWithBody(ctx, "/pool/dataset", params, &dataset); err != nil {
+	if err := c.call(ctx, "pool.dataset.create", []any{params}, &dataset); err != nil {
 		return nil, fmt.Errorf("creating dataset %q: %w", params.Name, err)
 	}
 	return &dataset, nil

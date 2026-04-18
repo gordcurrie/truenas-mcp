@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 )
 
@@ -22,16 +20,11 @@ func TestListVMs_success(t *testing.T) {
 		},
 	}
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/vm" {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(want); err != nil {
-			t.Errorf("encoding response: %v", err)
-		}
-	}))
+	srv := wsTestServer(t, map[string]methodHandler{
+		"vm.query": func(_ json.RawMessage) (any, *rpcError) {
+			return want, nil
+		},
+	})
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
@@ -61,16 +54,11 @@ func TestGetVM_success(t *testing.T) {
 		Status: VMStatus{State: "RUNNING"},
 	}
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/vm/id/1" {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(want); err != nil {
-			t.Errorf("encoding response: %v", err)
-		}
-	}))
+	srv := wsTestServer(t, map[string]methodHandler{
+		"vm.get_instance": func(_ json.RawMessage) (any, *rpcError) {
+			return want, nil
+		},
+	})
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
@@ -89,9 +77,11 @@ func TestGetVM_success(t *testing.T) {
 func TestGetVM_notFound(t *testing.T) {
 	t.Parallel()
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusNotFound)
-	}))
+	srv := wsTestServer(t, map[string]methodHandler{
+		"vm.get_instance": func(_ json.RawMessage) (any, *rpcError) {
+			return nil, &rpcError{Code: -32001, Message: "not found"}
+		},
+	})
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
@@ -104,16 +94,11 @@ func TestGetVM_notFound(t *testing.T) {
 func TestStartVM_success(t *testing.T) {
 	t.Parallel()
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost || r.URL.Path != "/vm/id/1/start" {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(42); err != nil {
-			t.Errorf("encoding response: %v", err)
-		}
-	}))
+	srv := wsTestServer(t, map[string]methodHandler{
+		"vm.start": func(_ json.RawMessage) (any, *rpcError) {
+			return 42, nil
+		},
+	})
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
@@ -129,16 +114,11 @@ func TestStartVM_success(t *testing.T) {
 func TestStopVM_success(t *testing.T) {
 	t.Parallel()
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost || r.URL.Path != "/vm/id/1/stop" {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(43); err != nil {
-			t.Errorf("encoding response: %v", err)
-		}
-	}))
+	srv := wsTestServer(t, map[string]methodHandler{
+		"vm.stop": func(_ json.RawMessage) (any, *rpcError) {
+			return 43, nil
+		},
+	})
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
@@ -154,16 +134,11 @@ func TestStopVM_success(t *testing.T) {
 func TestRestartVM_success(t *testing.T) {
 	t.Parallel()
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost || r.URL.Path != "/vm/id/1/restart" {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(44); err != nil {
-			t.Errorf("encoding response: %v", err)
-		}
-	}))
+	srv := wsTestServer(t, map[string]methodHandler{
+		"vm.restart": func(_ json.RawMessage) (any, *rpcError) {
+			return 44, nil
+		},
+	})
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
@@ -187,16 +162,11 @@ func TestCreateVM_success(t *testing.T) {
 		Status: VMStatus{State: "STOPPED"},
 	}
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost || r.URL.Path != "/vm" {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(created); err != nil {
-			t.Errorf("encoding response: %v", err)
-		}
-	}))
+	srv := wsTestServer(t, map[string]methodHandler{
+		"vm.create": func(_ json.RawMessage) (any, *rpcError) {
+			return created, nil
+		},
+	})
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
@@ -219,7 +189,7 @@ func TestCreateVM_success(t *testing.T) {
 func TestCreateVM_validationErrors(t *testing.T) {
 	t.Parallel()
 
-	c, err := NewClient("http://localhost:19999", "test-api-key", false) //nolint:gosec // G101: test-api-key is a fake placeholder
+	c, err := NewClient("http://localhost:19999", "test-api-key", false) //nolint:gosec // G101: fake placeholder
 	if err != nil {
 		t.Fatalf("NewClient: %v", err)
 	}
@@ -254,16 +224,11 @@ func TestUpdateVM_success(t *testing.T) {
 		Status: VMStatus{State: "STOPPED"},
 	}
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPut || r.URL.Path != "/vm/id/1" {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(updated); err != nil {
-			t.Errorf("encoding response: %v", err)
-		}
-	}))
+	srv := wsTestServer(t, map[string]methodHandler{
+		"vm.update": func(_ json.RawMessage) (any, *rpcError) {
+			return updated, nil
+		},
+	})
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
@@ -282,7 +247,7 @@ func TestUpdateVM_success(t *testing.T) {
 func TestUpdateVM_validationErrors(t *testing.T) {
 	t.Parallel()
 
-	c, err := NewClient("http://localhost:19999", "test-api-key", false) //nolint:gosec // G101: test-api-key is a fake placeholder
+	c, err := NewClient("http://localhost:19999", "test-api-key", false) //nolint:gosec // G101: fake placeholder
 	if err != nil {
 		t.Fatalf("NewClient: %v", err)
 	}
@@ -308,13 +273,11 @@ func TestUpdateVM_validationErrors(t *testing.T) {
 func TestDeleteVM_success(t *testing.T) {
 	t.Parallel()
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodDelete || r.URL.Path != "/vm/id/1" {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		w.WriteHeader(http.StatusOK)
-	}))
+	srv := wsTestServer(t, map[string]methodHandler{
+		"vm.delete": func(_ json.RawMessage) (any, *rpcError) {
+			return nil, nil
+		},
+	})
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
@@ -326,9 +289,11 @@ func TestDeleteVM_success(t *testing.T) {
 func TestDeleteVM_notFound(t *testing.T) {
 	t.Parallel()
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusNotFound)
-	}))
+	srv := wsTestServer(t, map[string]methodHandler{
+		"vm.delete": func(_ json.RawMessage) (any, *rpcError) {
+			return nil, &rpcError{Code: -32001, Message: "not found"}
+		},
+	})
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
@@ -341,22 +306,32 @@ func TestDeleteVM_notFound(t *testing.T) {
 func TestListVMDevices_success(t *testing.T) {
 	t.Parallel()
 
-	all := []VMDevice{
+	// Server returns only devices for the requested VM (server-side filtered).
+	devices := []VMDevice{
 		{ID: 1, VMID: 2, DType: VMDeviceTypeDISK, Attributes: map[string]any{"path": "zvol/Storage/pbs/disk0", "type": "VIRTIO"}},
 		{ID: 2, VMID: 2, DType: VMDeviceTypeNIC, Attributes: map[string]any{"type": "VIRTIO", "nic_attach": "br0"}},
-		{ID: 3, VMID: 9, DType: VMDeviceTypeCDROM, Attributes: map[string]any{"path": "/mnt/Storage/isos/other.iso"}},
 	}
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/vm/device" {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(all); err != nil {
-			t.Errorf("encoding response: %v", err)
-		}
-	}))
+	srv := wsTestServer(t, map[string]methodHandler{
+		"vm.device.query": func(params json.RawMessage) (any, *rpcError) {
+			// Verify the filter has vm=2.
+			var p []json.RawMessage
+			if err := json.Unmarshal(params, &p); err != nil || len(p) < 1 {
+				return nil, &rpcError{Code: -32600, Message: "bad params"}
+			}
+			var filters [][]any
+			if err := json.Unmarshal(p[0], &filters); err != nil || len(filters) == 0 {
+				return nil, &rpcError{Code: -32600, Message: "expected filters"}
+			}
+			if len(filters[0]) != 3 {
+				return nil, &rpcError{Code: -32600, Message: "wrong filter length"}
+			}
+			if filters[0][0] != "vm" || filters[0][1] != "=" || filters[0][2] != float64(2) {
+				return nil, &rpcError{Code: -32600, Message: "wrong filter field"}
+			}
+			return devices, nil
+		},
+	})
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
@@ -367,26 +342,16 @@ func TestListVMDevices_success(t *testing.T) {
 	if len(got) != 2 {
 		t.Fatalf("expected 2 devices for VM 2, got %d", len(got))
 	}
-	for _, d := range got {
-		if d.VMID != 2 {
-			t.Errorf("unexpected VMID %d in results", d.VMID)
-		}
-	}
 }
 
 func TestListVMDevices_empty(t *testing.T) {
 	t.Parallel()
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/vm/device" {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode([]VMDevice{}); err != nil {
-			t.Errorf("encoding response: %v", err)
-		}
-	}))
+	srv := wsTestServer(t, map[string]methodHandler{
+		"vm.device.query": func(_ json.RawMessage) (any, *rpcError) {
+			return []VMDevice{}, nil
+		},
+	})
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
@@ -409,37 +374,31 @@ func TestAddVMDevice_success(t *testing.T) {
 		Attributes: map[string]any{"path": "/mnt/Storage/isos/pbs.iso"},
 	}
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost || r.URL.Path != "/vm/device" {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-
-		// Assert wire format: dtype must be inside attributes, not top-level.
-		var body map[string]json.RawMessage
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			t.Errorf("decoding request body: %v", err)
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-		if _, topLevel := body["dtype"]; topLevel {
-			t.Errorf("dtype must not appear as a top-level field in the request body")
-		}
-		var attrs map[string]any
-		if err := json.Unmarshal(body["attributes"], &attrs); err != nil {
-			t.Errorf("decoding attributes: %v", err)
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-		if attrs["dtype"] != string(VMDeviceTypeCDROM) {
-			t.Errorf("attributes.dtype = %v, want %q", attrs["dtype"], VMDeviceTypeCDROM)
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(want); err != nil {
-			t.Errorf("encoding response: %v", err)
-		}
-	}))
+	srv := wsTestServer(t, map[string]methodHandler{
+		"vm.device.create": func(params json.RawMessage) (any, *rpcError) {
+			// params is [[wire]] — first element is the wire struct.
+			var p []json.RawMessage
+			if err := json.Unmarshal(params, &p); err != nil || len(p) < 1 {
+				return nil, &rpcError{Code: -32600, Message: "bad params"}
+			}
+			// dtype must NOT be a top-level field; it lives inside attributes.
+			var wire map[string]json.RawMessage
+			if err := json.Unmarshal(p[0], &wire); err != nil {
+				return nil, &rpcError{Code: -32600, Message: "bad wire"}
+			}
+			if _, topLevel := wire["dtype"]; topLevel {
+				return nil, &rpcError{Code: -32600, Message: "dtype must not be top-level"}
+			}
+			var attrs map[string]any
+			if err := json.Unmarshal(wire["attributes"], &attrs); err != nil {
+				return nil, &rpcError{Code: -32600, Message: "bad attributes"}
+			}
+			if attrs["dtype"] != string(VMDeviceTypeCDROM) {
+				return nil, &rpcError{Code: -32600, Message: "wrong dtype in attributes"}
+			}
+			return want, nil
+		},
+	})
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
@@ -462,7 +421,10 @@ func TestAddVMDevice_success(t *testing.T) {
 func TestAddVMDevice_validation(t *testing.T) {
 	t.Parallel()
 
-	c := newTestClient(t, "http://localhost:9")
+	c, err := NewClient("http://localhost:19999", "test-api-key", false) //nolint:gosec // G101: fake placeholder
+	if err != nil {
+		t.Fatalf("NewClient: %v", err)
+	}
 
 	tests := []struct {
 		name   string
@@ -488,13 +450,11 @@ func TestAddVMDevice_validation(t *testing.T) {
 func TestDeleteVMDevice_success(t *testing.T) {
 	t.Parallel()
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodDelete || r.URL.Path != "/vm/device/id/5" {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		w.WriteHeader(http.StatusOK)
-	}))
+	srv := wsTestServer(t, map[string]methodHandler{
+		"vm.device.delete": func(_ json.RawMessage) (any, *rpcError) {
+			return nil, nil
+		},
+	})
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
@@ -506,9 +466,11 @@ func TestDeleteVMDevice_success(t *testing.T) {
 func TestDeleteVMDevice_notFound(t *testing.T) {
 	t.Parallel()
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusNotFound)
-	}))
+	srv := wsTestServer(t, map[string]methodHandler{
+		"vm.device.delete": func(_ json.RawMessage) (any, *rpcError) {
+			return nil, &rpcError{Code: -32001, Message: "not found"}
+		},
+	})
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)

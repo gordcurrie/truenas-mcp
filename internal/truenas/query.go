@@ -1,11 +1,6 @@
 package truenas
 
-import (
-	"fmt"
-	"net/url"
-	"strconv"
-	"strings"
-)
+import "fmt"
 
 // ListOptions controls optional server-side pagination for TrueNAS list endpoints.
 // Zero values mean "return all results" (no limit, no offset).
@@ -17,7 +12,7 @@ type ListOptions struct {
 }
 
 // validateListOptions returns an error if opts contains negative pagination values.
-// Callers must validate before passing opts to buildQueryString so that negative
+// Callers must validate before passing opts to buildQueryParams so that negative
 // values are caught early rather than silently treated as "no constraint".
 func validateListOptions(opts ListOptions) error {
 	if opts.Limit < 0 {
@@ -29,36 +24,29 @@ func validateListOptions(opts ListOptions) error {
 	return nil
 }
 
-// buildQueryString constructs the URL query string (including the leading "?")
-// to append to a TrueNAS list endpoint.
+// buildQueryParams constructs the JSON-RPC params array for TrueNAS query methods.
+// It returns [filters, options] where filters is a []any of [field, op, value] triples
+// and options is a map containing limit/offset when non-zero.
 //
-// TrueNAS SCALE REST API accepts filters and pagination as plain query
-// parameters — e.g. ?dataset=Storage&limit=10&offset=0. The JSON-encoded
-// query-filters / query-options blob format is not supported by GET endpoints.
+// Example:
 //
-// filter elements must be three-element slices [field, "=", value]; only
-// equality filters are used in this codebase. Non-equality elements are
-// silently skipped.
-//
-// Returns "" when no filter fields are set and opts is zero.
-func buildQueryString(filter [][]string, opts ListOptions) string {
-	var parts []string
-
-	for _, f := range filter {
-		if len(f) == 3 && f[1] == "=" && f[0] != "" {
-			parts = append(parts, url.QueryEscape(f[0])+"="+url.QueryEscape(f[2]))
+//	buildQueryParams([][]string{{"pool","=","tank"}}, ListOptions{Limit:10})
+//	→ [[["pool","=","tank"]], {"limit":10}]
+func buildQueryParams(filters [][]string, opts ListOptions) []any {
+	f := make([]any, 0, len(filters))
+	for _, filter := range filters {
+		if len(filter) == 3 {
+			f = append(f, []any{filter[0], filter[1], filter[2]})
 		}
 	}
 
+	options := map[string]any{}
 	if opts.Limit > 0 {
-		parts = append(parts, "limit="+strconv.Itoa(opts.Limit))
+		options["limit"] = opts.Limit
 	}
 	if opts.Offset > 0 {
-		parts = append(parts, "offset="+strconv.Itoa(opts.Offset))
+		options["offset"] = opts.Offset
 	}
 
-	if len(parts) == 0 {
-		return ""
-	}
-	return "?" + strings.Join(parts, "&")
+	return []any{f, options}
 }

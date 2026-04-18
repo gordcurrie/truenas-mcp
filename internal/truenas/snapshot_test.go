@@ -3,8 +3,7 @@ package truenas
 import (
 	"context"
 	"encoding/json"
-	"net/http"
-	"net/http/httptest"
+	"errors"
 	"testing"
 )
 
@@ -20,16 +19,11 @@ func TestListSnapshots_success(t *testing.T) {
 		},
 	}
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/pool/snapshot" {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(want); err != nil {
-			t.Errorf("encoding response: %v", err)
-		}
-	}))
+	srv := wsTestServer(t, map[string]methodHandler{
+		"pool.snapshot.query": func(_ json.RawMessage) (any, *rpcError) {
+			return want, nil
+		},
+	})
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
@@ -52,29 +46,22 @@ func TestListSnapshots_filterByDataset(t *testing.T) {
 		{ID: "Storage/backups@snap1", Dataset: "Storage/backups", Name: "snap1", Pool: "Storage"},
 	}
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/pool/snapshot" {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		// The client should pass dataset as a direct query param, not as a
-		// JSON-encoded query-filters blob, which TrueNAS REST does not support.
-		dataset := r.URL.Query().Get("dataset")
-		if dataset == "" {
-			t.Error("expected dataset query param but got none")
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-		if dataset != "Storage/backups" {
-			t.Errorf("dataset param = %q, want %q", dataset, "Storage/backups")
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(want); err != nil {
-			t.Errorf("encoding response: %v", err)
-		}
-	}))
+	srv := wsTestServer(t, map[string]methodHandler{
+		"pool.snapshot.query": func(params json.RawMessage) (any, *rpcError) {
+			var p []json.RawMessage
+			if err := json.Unmarshal(params, &p); err != nil || len(p) < 1 {
+				return nil, &rpcError{Code: -32600, Message: "bad params"}
+			}
+			var filters [][]any
+			if err := json.Unmarshal(p[0], &filters); err != nil || len(filters) == 0 {
+				return nil, &rpcError{Code: -32600, Message: "expected filters"}
+			}
+			if len(filters[0]) != 3 || filters[0][0] != "dataset" || filters[0][2] != "Storage/backups" {
+				return nil, &rpcError{Code: -32600, Message: "wrong filter"}
+			}
+			return want, nil
+		},
+	})
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
@@ -100,17 +87,11 @@ func TestGetSnapshot_success(t *testing.T) {
 		Pool:    "Storage",
 	}
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Go's HTTP server decodes %2F to / in r.URL.Path; check the decoded form.
-		if r.URL.Path != "/pool/snapshot/id/Storage/backups@before-upgrade" {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(want); err != nil {
-			t.Errorf("encoding response: %v", err)
-		}
-	}))
+	srv := wsTestServer(t, map[string]methodHandler{
+		"pool.snapshot.get_instance": func(_ json.RawMessage) (any, *rpcError) {
+			return want, nil
+		},
+	})
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
@@ -126,7 +107,11 @@ func TestGetSnapshot_success(t *testing.T) {
 func TestGetSnapshot_validation(t *testing.T) {
 	t.Parallel()
 
-	c := newTestClient(t, "http://localhost")
+	// No server needed — validation fires before any network call.
+	c, err := NewClient("http://localhost:19999", "test-api-key", false) //nolint:gosec // G101: fake placeholder
+	if err != nil {
+		t.Fatalf("NewClient: %v", err)
+	}
 
 	tests := []struct {
 		name string
@@ -158,26 +143,11 @@ func TestCreateSnapshot_success(t *testing.T) {
 		Pool:    "Storage",
 	}
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost || r.URL.Path != "/pool/snapshot" {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		var body CreateSnapshotParams
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			t.Errorf("decoding body: %v", err)
-		}
-		if body.Dataset != "Storage/backups" {
-			t.Errorf("Dataset = %q, want %q", body.Dataset, "Storage/backups")
-		}
-		if body.Name != "before-upgrade" {
-			t.Errorf("Name = %q, want %q", body.Name, "before-upgrade")
-		}
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(want); err != nil {
-			t.Errorf("encoding response: %v", err)
-		}
-	}))
+	srv := wsTestServer(t, map[string]methodHandler{
+		"pool.snapshot.create": func(_ json.RawMessage) (any, *rpcError) {
+			return want, nil
+		},
+	})
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
@@ -196,7 +166,11 @@ func TestCreateSnapshot_success(t *testing.T) {
 func TestCreateSnapshot_validation(t *testing.T) {
 	t.Parallel()
 
-	c := newTestClient(t, "http://localhost")
+	// No server needed — validation fires before any network call.
+	c, err := NewClient("http://localhost:19999", "test-api-key", false) //nolint:gosec // G101: fake placeholder
+	if err != nil {
+		t.Fatalf("NewClient: %v", err)
+	}
 
 	tests := []struct {
 		name   string
@@ -218,16 +192,11 @@ func TestCreateSnapshot_validation(t *testing.T) {
 func TestRollbackSnapshot_success(t *testing.T) {
 	t.Parallel()
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost || r.URL.Path != "/pool/snapshot/id/Storage/backups@before-upgrade/rollback" {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(nil); err != nil {
-			t.Errorf("encoding response: %v", err)
-		}
-	}))
+	srv := wsTestServer(t, map[string]methodHandler{
+		"pool.snapshot.rollback": func(_ json.RawMessage) (any, *rpcError) {
+			return nil, nil
+		},
+	})
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
@@ -239,7 +208,10 @@ func TestRollbackSnapshot_success(t *testing.T) {
 func TestRollbackSnapshot_validation(t *testing.T) {
 	t.Parallel()
 
-	c := newTestClient(t, "http://localhost")
+	c, err := NewClient("http://localhost:19999", "test-api-key", false) //nolint:gosec // G101: fake placeholder
+	if err != nil {
+		t.Fatalf("NewClient: %v", err)
+	}
 
 	tests := []struct {
 		name string
@@ -264,16 +236,11 @@ func TestRollbackSnapshot_validation(t *testing.T) {
 func TestDeleteSnapshot_success(t *testing.T) {
 	t.Parallel()
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodDelete || r.URL.Path != "/pool/snapshot/id/Storage/backups@before-upgrade" {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(true); err != nil {
-			t.Errorf("encoding response: %v", err)
-		}
-	}))
+	srv := wsTestServer(t, map[string]methodHandler{
+		"pool.snapshot.delete": func(_ json.RawMessage) (any, *rpcError) {
+			return nil, nil
+		},
+	})
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
@@ -285,7 +252,10 @@ func TestDeleteSnapshot_success(t *testing.T) {
 func TestDeleteSnapshot_validation(t *testing.T) {
 	t.Parallel()
 
-	c := newTestClient(t, "http://localhost")
+	c, err := NewClient("http://localhost:19999", "test-api-key", false) //nolint:gosec // G101: fake placeholder
+	if err != nil {
+		t.Fatalf("NewClient: %v", err)
+	}
 
 	tests := []struct {
 		name string
@@ -304,5 +274,22 @@ func TestDeleteSnapshot_validation(t *testing.T) {
 				t.Fatal("expected error, got nil")
 			}
 		})
+	}
+}
+
+func TestGetSnapshot_notFound(t *testing.T) {
+	t.Parallel()
+
+	srv := wsTestServer(t, map[string]methodHandler{
+		"pool.snapshot.get_instance": func(_ json.RawMessage) (any, *rpcError) {
+			return nil, &rpcError{Code: -32001, Message: "not found"}
+		},
+	})
+	defer srv.Close()
+
+	c := newTestClient(t, srv.URL)
+	_, err := c.GetSnapshot(context.Background(), "Storage/backups@missing")
+	if !errors.Is(err, ErrNotFound) {
+		t.Errorf("expected ErrNotFound, got %v", err)
 	}
 }

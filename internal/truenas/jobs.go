@@ -25,11 +25,12 @@ type Job struct {
 	Error    *string     `json:"error"`
 }
 
-// getJobs fetches the job with the given ID from /core/get_jobs.
+// getJobs fetches the job with the given ID via the core.get_jobs RPC method.
 func (c *Client) getJobs(ctx context.Context, id int) (*Job, error) {
-	path := fmt.Sprintf("/core/get_jobs?id=%d", id)
+	// Filter by integer job ID: [[["id", "=", N]], {}]
+	params := []any{[]any{[]any{"id", "=", id}}, map[string]any{}}
 	var jobs []Job
-	if err := c.get(ctx, path, &jobs); err != nil {
+	if err := c.call(ctx, "core.get_jobs", params, &jobs); err != nil {
 		return nil, fmt.Errorf("fetching job %d: %w", id, err)
 	}
 	if len(jobs) == 0 {

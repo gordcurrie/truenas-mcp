@@ -3,7 +3,7 @@
 //
 // Required environment variables:
 //
-//	TRUENAS_API_URL  Base URL of the TrueNAS SCALE API (e.g. https://truenas.local/api/v2.0)
+//	TRUENAS_API_URL  Base URL of the TrueNAS SCALE host (e.g. https://truenas.local)
 //	TRUENAS_API_KEY  API key created in TrueNAS UI under Credentials -> API Keys
 //
 // Optional environment variables:
@@ -67,6 +67,17 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("creating TrueNAS client: %w", err)
 	}
+
+	connectCtx, connectCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer connectCancel()
+	if err := client.Connect(connectCtx); err != nil {
+		return fmt.Errorf("connecting to TrueNAS: %w", err)
+	}
+	defer func() {
+		if closeErr := client.Close(); closeErr != nil {
+			slog.Warn("closing TrueNAS WebSocket connection", "err", closeErr)
+		}
+	}()
 
 	server := mcp.NewServer(&mcp.Implementation{
 		Name:    "truenas-mcp",

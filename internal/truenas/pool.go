@@ -45,9 +45,8 @@ func (c *Client) ListPools(ctx context.Context, opts ...ListOptions) ([]Pool, er
 	if err := validateListOptions(o); err != nil {
 		return nil, fmt.Errorf("listing pools: %w", err)
 	}
-	qs := buildQueryString(nil, o)
 	var pools []Pool
-	if err := c.get(ctx, "/pool"+qs, &pools); err != nil {
+	if err := c.call(ctx, "pool.query", buildQueryParams(nil, o), &pools); err != nil {
 		return nil, fmt.Errorf("listing pools: %w", err)
 	}
 	return pools, nil
@@ -56,7 +55,7 @@ func (c *Client) ListPools(ctx context.Context, opts ...ListOptions) ([]Pool, er
 // GetPool returns a single ZFS pool by its numeric ID.
 func (c *Client) GetPool(ctx context.Context, id int) (*Pool, error) {
 	var pool Pool
-	if err := c.get(ctx, fmt.Sprintf("/pool/id/%d", id), &pool); err != nil {
+	if err := c.call(ctx, "pool.get_instance", []any{id}, &pool); err != nil {
 		return nil, fmt.Errorf("getting pool %d: %w", id, err)
 	}
 	return &pool, nil
