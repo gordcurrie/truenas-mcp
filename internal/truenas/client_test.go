@@ -119,6 +119,24 @@ func TestNewClient_validation(t *testing.T) {
 			apiKey:  "",
 			wantErr: true,
 		},
+		{
+			name:    "no scheme",
+			host:    "truenas.local",
+			apiKey:  "test-api-key", //nolint:gosec // G101: fake placeholder
+			wantErr: true,
+		},
+		{
+			name:    "unsupported scheme",
+			host:    "ftp://truenas.local",
+			apiKey:  "test-api-key", //nolint:gosec // G101: fake placeholder
+			wantErr: true,
+		},
+		{
+			name:    "legacy path stripped",
+			host:    "https://truenas.local/api/v2.0",
+			apiKey:  "test-api-key", //nolint:gosec // G101: fake placeholder
+			wantErr: false,
+		},
 	}
 
 	for _, tc := range tests {

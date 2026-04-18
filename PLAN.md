@@ -132,32 +132,32 @@ any changes to the `tools/` layer.
 **Goal**: Replace `net/http` transport with a persistent WebSocket JSON-RPC 2.0 connection.
 
 **Tasks**:
-- [x] Add `github.com/gorilla/websocket` to `go.mod`
-- [x] Rewrite `internal/truenas/client.go` — persistent WS connection, `auth.login_with_api_key`,
+- ✅ Add `github.com/gorilla/websocket` to `go.mod`
+- ✅ Rewrite `internal/truenas/client.go` — persistent WS connection, `auth.login_with_api_key`,
   per-request channel routing via `pending map[int64]chan rpcResponse`, `readLoop` goroutine, `Close()`
-- [x] Rewrite `internal/truenas/query.go` — replace `buildQueryString` with `buildQueryParams`
+- ✅ Rewrite `internal/truenas/query.go` — replace `buildQueryString` with `buildQueryParams`
   returning a JSON-RPC `[]any{filters, options}` params array; keep `ListOptions` and `validateListOptions`
-- [x] Update `internal/truenas/jobs.go` — replace HTTP GET with `c.call(ctx, "core.get_jobs", ...)`
-- [x] Update `internal/truenas/system.go` — `system.info` RPC
-- [x] Update `internal/truenas/pool.go` — `pool.query`, `pool.get_instance`
-- [x] Update `internal/truenas/dataset.go` — `pool.dataset.query`, `pool.dataset.get_instance`, `pool.dataset.create`
-- [x] Update `internal/truenas/snapshot.go` — `pool.snapshot.query`, `pool.snapshot.get_instance`,
+- ✅ Update `internal/truenas/jobs.go` — replace HTTP GET with `c.call(ctx, "core.get_jobs", ...)`
+- ✅ Update `internal/truenas/system.go` — `system.info` RPC
+- ✅ Update `internal/truenas/pool.go` — `pool.query`, `pool.get_instance`
+- ✅ Update `internal/truenas/dataset.go` — `pool.dataset.query`, `pool.dataset.get_instance`, `pool.dataset.create`
+- ✅ Update `internal/truenas/snapshot.go` — `pool.snapshot.query`, `pool.snapshot.get_instance`,
   `pool.snapshot.create`, `pool.snapshot.rollback`, `pool.snapshot.delete`
-- [x] Update `internal/truenas/vm.go` — `vm.query`, `vm.get_instance`, `vm.start`, `vm.stop`,
+- ✅ Update `internal/truenas/vm.go` — `vm.query`, `vm.get_instance`, `vm.start`, `vm.stop`,
   `vm.restart`, `vm.create`, `vm.update`, `vm.delete`, `vm.device.query`, `vm.device.create`, `vm.device.delete`
-- [x] Update `internal/truenas/app.go` — `app.query`, `app.get_instance`, `app.start`, `app.stop`,
+- ✅ Update `internal/truenas/app.go` — `app.query`, `app.get_instance`, `app.start`, `app.stop`,
   `app.redeploy`, `app.create`, `app.delete`, `app.upgrade`, `app.rollback`, `app.upgrade_summary`,
   `app.image.query`
-- [x] Update `internal/truenas/network.go` — `interface.query`
-- [x] Update `internal/truenas/filesystem.go` — `filesystem.listdir`
-- [x] Update `cmd/truenas-mcp/main.go` — derive `wss://<host>/api/current` from base URL,
+- ✅ Update `internal/truenas/network.go` — `interface.query`
+- ✅ Update `internal/truenas/filesystem.go` — `filesystem.listdir`
+- ✅ Update `cmd/truenas-mcp/main.go` — derive `wss://<host>/api/current` from base URL,
   call `client.Connect(ctx)` on startup; remove `/api/v2.0` path expectation
-- [x] Rewrite `internal/truenas/client_test.go` — replace `httptest.Server` with a test WS server
-- [x] Update README — `TRUENAS_API_URL` is base URL only (e.g. `https://truenas.local`)
-- [x] `make check` passes
+- ✅ Rewrite `internal/truenas/client_test.go` — replace `httptest.Server` with a test WS server
+- ✅ Update README — `TRUENAS_API_URL` is base URL only (e.g. `https://truenas.local`)
+- ✅ `make check` passes
 
 **Key design decisions**:
-- Single persistent connection; fail fast on disconnect (no auto-reconnect)
+- Single persistent connection with transparent one-shot reconnect on disconnect
 - `NewClient(host, apiKey string, insecure bool) (*Client, error)` — validates configuration eagerly (non-empty host/key, normalises URL); network connection is still lazy until `Connect(ctx)`
 - `Connect(ctx context.Context) error` — dials, authenticates, starts `readLoop`
 - `call(ctx, method string, params, result any) error` — registers pending channel, sends request, waits

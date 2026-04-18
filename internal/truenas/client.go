@@ -14,7 +14,10 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-const wsHandshakeTimeout = 10 * time.Second
+const (
+	wsHandshakeTimeout = 10 * time.Second
+	defaultCallTimeout = 30 * time.Second // applied when ctx has no deadline
+)
 
 // rpcRequest is a JSON-RPC 2.0 request frame sent to TrueNAS.
 type rpcRequest struct {
@@ -46,16 +49,15 @@ type rpcError struct {
 // All methods require a context.Context as the first parameter.
 // Call Connect before using any API methods.
 type Client struct {
-	host      string // base URL, e.g. "https://truenas.local"
-	apiKey    string
-	insecure  bool
-	conn      *websocket.Conn
-	mu        sync.Mutex // protects conn writes and pending map
-	reconMu   sync.Mutex // serialises reconnection attempts
-	nextID    atomic.Int64
-	pending   map[int64]chan rpcResponse
-	done      chan struct{}
-	closeOnce sync.Once
+	host     string // base URL, e.g. "https://truenas.local"
+	apiKey   string
+	insecure bool
+	conn     *websocket.Conn
+	mu       sync.Mutex // protects conn, done, and pending map
+	reconMu  sync.Mutex // serialises reconnection attempts
+	nextID   atomic.Int64
+	pending  map[int64]chan rpcResponse
+	done     chan struct{}
 }
 
 // NewClient creates a new TrueNAS SCALE API client.
@@ -77,6 +79,9 @@ func NewClient(host, apiKey string, insecure bool) (*Client, error) {
 	u, err := url.Parse(host)
 	if err != nil {
 		return nil, fmt.Errorf("invalid host URL %q: %w", host, err)
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return nil, fmt.Errorf("invalid host URL %q: must begin with http:// or https://", host)
 	}
 	u.Path = ""
 	u.RawQuery = ""
@@ -157,15 +162,22 @@ func (c *Client) Connect(ctx context.Context) error {
 }
 
 // Close closes the WebSocket connection and unblocks any pending calls.
+// Safe to call multiple times.
 func (c *Client) Close() error {
-	var closeErr error
-	c.closeOnce.Do(func() {
+	c.mu.Lock()
+	select {
+	case <-c.done:
+		c.mu.Unlock()
+		return nil // already closed
+	default:
 		close(c.done)
-		if c.conn != nil {
-			closeErr = c.conn.Close()
-		}
-	})
-	return closeErr
+	}
+	conn := c.conn
+	c.mu.Unlock()
+	if conn != nil {
+		return conn.Close()
+	}
+	return nil
 }
 
 // reconnect tears down the current (dead) connection and establishes a fresh one.
@@ -191,7 +203,6 @@ func (c *Client) reconnect(ctx context.Context) error {
 	c.mu.Lock()
 	c.pending = make(map[int64]chan rpcResponse)
 	c.done = make(chan struct{})
-	c.closeOnce = sync.Once{}
 	c.mu.Unlock()
 
 	return c.Connect(ctx)
@@ -219,6 +230,14 @@ func (c *Client) call(ctx context.Context, method string, params, out any) error
 
 // callOnce is the core send-and-wait logic used by call.
 func (c *Client) callOnce(ctx context.Context, method string, params, out any) error {
+	// Ensure a per-call deadline so a silent server or stalled network never
+	// blocks the caller indefinitely. A tighter deadline from the caller wins.
+	if _, ok := ctx.Deadline(); !ok {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, defaultCallTimeout)
+		defer cancel()
+	}
+
 	id := c.nextID.Add(1)
 
 	req := rpcRequest{
@@ -253,6 +272,13 @@ func (c *Client) callOnce(ctx context.Context, method string, params, out any) e
 	if err != nil {
 		c.mu.Lock()
 		delete(c.pending, id)
+		// Proactively close done so call() triggers a reconnect attempt even
+		// if readLoop has not yet observed the broken connection.
+		select {
+		case <-c.done:
+		default:
+			close(c.done)
+		}
 		c.mu.Unlock()
 		return fmt.Errorf("sending RPC request for %s: %w", method, err)
 	}
@@ -282,14 +308,28 @@ func (c *Client) callOnce(ctx context.Context, method string, params, out any) e
 // readLoop reads WebSocket frames and routes responses to pending callers.
 // Runs as a goroutine until the connection is closed or an error occurs.
 func (c *Client) readLoop() {
+	// Capture the done channel for this connection instance so that a stale
+	// readLoop goroutine cannot close a freshly-reconnected done channel.
+	c.mu.Lock()
+	doneCh := c.done
+	c.mu.Unlock()
+
 	defer func() {
-		c.closeOnce.Do(func() { close(c.done) })
-		// Unblock all pending callers with a connection-closed error.
 		connClosed := &rpcError{Code: -32000, Message: "connection closed"}
 		c.mu.Lock()
-		for id, ch := range c.pending {
-			ch <- rpcResponse{Error: connClosed}
-			delete(c.pending, id)
+		// Only close and drain if this is still the active readLoop. If
+		// reconnect() has replaced c.done, the pending map was already cleared
+		// and the new readLoop owns the new done channel.
+		if c.done == doneCh {
+			select {
+			case <-doneCh:
+			default:
+				close(doneCh)
+			}
+			for id, ch := range c.pending {
+				ch <- rpcResponse{Error: connClosed}
+				delete(c.pending, id)
+			}
 		}
 		c.mu.Unlock()
 	}()
