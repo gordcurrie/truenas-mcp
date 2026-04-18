@@ -376,10 +376,11 @@ func (c *Client) readLoop() {
 	}
 }
 
-// mapRPCError converts a JSON-RPC error response into ErrNotFound or *APIError.
-// JSON-RPC -32601 (method not found) is always returned as *APIError — not
-// ErrNotFound — so callers can distinguish a missing RPC method (client bug or
-// older TrueNAS build) from a missing TrueNAS resource.
+// mapRPCError converts a JSON-RPC error response into ErrNotFound,
+// ErrMethodNotFound, or *APIError.
+// JSON-RPC -32601 (method not found) is returned as an error wrapping
+// ErrMethodNotFound so callers can distinguish a missing RPC method (client
+// bug or older TrueNAS build) from a missing TrueNAS resource.
 func (c *Client) mapRPCError(method string, e *rpcError) error {
 	body := e.Data.Reason
 	if body == "" {

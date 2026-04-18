@@ -78,7 +78,11 @@ func TestStartApp_success(t *testing.T) {
 	t.Parallel()
 
 	srv := wsTestServer(t, map[string]methodHandler{
-		"app.start": func(_ json.RawMessage) (any, *rpcError) {
+		"app.start": func(params json.RawMessage) (any, *rpcError) {
+			var p []string
+			if err := json.Unmarshal(params, &p); err != nil || len(p) != 1 || p[0] != "nginx" {
+				return nil, &rpcError{Code: -32600, Message: "wrong params"}
+			}
 			return 10, nil
 		},
 	})
@@ -98,7 +102,11 @@ func TestStopApp_success(t *testing.T) {
 	t.Parallel()
 
 	srv := wsTestServer(t, map[string]methodHandler{
-		"app.stop": func(_ json.RawMessage) (any, *rpcError) {
+		"app.stop": func(params json.RawMessage) (any, *rpcError) {
+			var p []string
+			if err := json.Unmarshal(params, &p); err != nil || len(p) != 1 || p[0] != "nginx" {
+				return nil, &rpcError{Code: -32600, Message: "wrong params"}
+			}
 			return 11, nil
 		},
 	})
@@ -118,7 +126,11 @@ func TestRestartApp_success(t *testing.T) {
 	t.Parallel()
 
 	srv := wsTestServer(t, map[string]methodHandler{
-		"app.redeploy": func(_ json.RawMessage) (any, *rpcError) {
+		"app.redeploy": func(params json.RawMessage) (any, *rpcError) {
+			var p []string
+			if err := json.Unmarshal(params, &p); err != nil || len(p) != 1 || p[0] != "nginx" {
+				return nil, &rpcError{Code: -32600, Message: "wrong params"}
+			}
 			return 12, nil
 		},
 	})
