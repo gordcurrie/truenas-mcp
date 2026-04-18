@@ -125,14 +125,23 @@ func (c *Client) Connect(ctx context.Context) error {
 		dialer.TLSClientConfig = &tls.Config{InsecureSkipVerify: true} /* #nosec G402 */ //nolint:gosec // G402: InsecureSkipVerify is only set when TRUENAS_INSECURE=true, which the user must explicitly opt into. Default is secure (verify enabled).
 	}
 
-	conn, resp, err := dialer.DialContext(ctx, wsAddr, nil) //nolint:bodyclose // WebSocket upgrade response body is managed by conn after successful upgrade
+	conn, resp, err := dialer.DialContext(ctx, wsAddr, nil)
+	if resp != nil {
+		_ = resp.Body.Close() // drain upgrade response body; no-op after a successful upgrade
+	}
 	if err != nil {
-		if resp != nil {
-			_ = resp.Body.Close()
-		}
 		return fmt.Errorf("connecting to TrueNAS at %s: %w", wsAddr, err)
 	}
+
+	// Assign the connection under mu and guard against a double-Connect.
+	c.mu.Lock()
+	if c.conn != nil {
+		c.mu.Unlock()
+		_ = conn.Close()
+		return fmt.Errorf("Connect called on an already-connected client")
+	}
 	c.conn = conn
+	c.mu.Unlock()
 
 	go c.readLoop()
 
@@ -186,24 +195,25 @@ func (c *Client) reconnect(ctx context.Context) error {
 	c.reconMu.Lock()
 	defer c.reconMu.Unlock()
 
-	// Another goroutine may have already reconnected while we waited for the lock.
-	// Check if done is still closed; if not, the connection is already healthy.
+	// Check under mu whether done is still closed; if not, the connection is healthy.
+	c.mu.Lock()
 	select {
 	case <-c.done:
 		// connection is closed — proceed with reconnect
 	default:
+		c.mu.Unlock()
 		return nil // already reconnected by a concurrent call
 	}
-
-	// Close the old conn without going through closeOnce (already fired).
-	if c.conn != nil {
-		_ = c.conn.Close()
-	}
-	// Reset connection state.
-	c.mu.Lock()
+	oldConn := c.conn
+	c.conn = nil // cleared so Connect can assign the new connection under mu
 	c.pending = make(map[int64]chan rpcResponse)
 	c.done = make(chan struct{})
 	c.mu.Unlock()
+
+	// Close old connection outside mu to avoid holding the lock during I/O.
+	if oldConn != nil {
+		_ = oldConn.Close()
+	}
 
 	return c.Connect(ctx)
 }
@@ -308,10 +318,12 @@ func (c *Client) callOnce(ctx context.Context, method string, params, out any) e
 // readLoop reads WebSocket frames and routes responses to pending callers.
 // Runs as a goroutine until the connection is closed or an error occurs.
 func (c *Client) readLoop() {
-	// Capture the done channel for this connection instance so that a stale
-	// readLoop goroutine cannot close a freshly-reconnected done channel.
+	// Capture both the connection and the done channel for this goroutine's lifetime.
+	// Using a local conn ensures a stale readLoop reads from its own (closed)
+	// connection and cannot interfere with a freshly-reconnected one.
 	c.mu.Lock()
 	doneCh := c.done
+	conn := c.conn
 	c.mu.Unlock()
 
 	defer func() {
@@ -335,7 +347,7 @@ func (c *Client) readLoop() {
 	}()
 
 	for {
-		_, data, err := c.conn.ReadMessage()
+		_, data, err := conn.ReadMessage()
 		if err != nil {
 			return
 		}

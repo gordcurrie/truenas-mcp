@@ -30,7 +30,7 @@ func wsTestServer(t *testing.T, handlers map[string]methodHandler) *httptest.Ser
 			t.Errorf("WS upgrade: %v", err)
 			return
 		}
-		defer conn.Close() //nolint:errcheck // test cleanup
+		defer func() { _ = conn.Close() }()
 
 		for {
 			_, data, err := conn.ReadMessage()
@@ -182,7 +182,7 @@ func TestClient_Connect_rejectsInvalidKey(t *testing.T) {
 		if err != nil {
 			return
 		}
-		defer conn.Close() //nolint:errcheck // test cleanup
+		defer func() { _ = conn.Close() }()
 
 		// First message is core.set_options — acknowledge it so Connect proceeds.
 		_, data, _ := conn.ReadMessage()
