@@ -102,15 +102,20 @@ func NewClient(host, apiKey string, insecure bool) (*Client, error) {
 //	https://nas.example.com → wss://nas.example.com/api/current
 //	http://nas.example.com  → ws://nas.example.com/api/current
 func (c *Client) wsURL() string {
-	u := strings.TrimRight(c.host, "/")
-	switch {
-	case strings.HasPrefix(u, "https://"):
-		return "wss://" + strings.TrimPrefix(u, "https://") + "/api/current"
-	case strings.HasPrefix(u, "http://"):
-		return "ws://" + strings.TrimPrefix(u, "http://") + "/api/current"
-	default:
-		return "wss://" + u + "/api/current"
+	u, err := url.Parse(strings.TrimRight(c.host, "/"))
+	if err != nil {
+		return ""
 	}
+	switch u.Scheme {
+	case "https":
+		u.Scheme = "wss"
+	case "http":
+		u.Scheme = "ws"
+	default:
+		return ""
+	}
+	u.Path = strings.TrimRight(u.Path, "/") + "/api/current"
+	return u.String()
 }
 
 // Connect opens the WebSocket connection to TrueNAS and authenticates with the API key.

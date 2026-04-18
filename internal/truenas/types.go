@@ -13,7 +13,9 @@ var ErrNotFound = errors.New("resource not found")
 // implement the requested RPC method.
 var ErrMethodNotFound = errors.New("RPC method not found")
 
-// APIError represents a non-2xx response from the TrueNAS API.
+// APIError represents an error returned by the TrueNAS API over HTTP or
+// JSON-RPC. StatusCode contains either the HTTP status code or the JSON-RPC
+// error code, which may be negative.
 type APIError struct {
 	StatusCode int
 	Body       string

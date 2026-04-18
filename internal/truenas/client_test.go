@@ -170,7 +170,6 @@ func TestClient_wsURL(t *testing.T) {
 		{"https://truenas.local", "wss://truenas.local/api/current"},
 		{"https://truenas.local/", "wss://truenas.local/api/current"},
 		{"http://truenas.local", "ws://truenas.local/api/current"},
-		{"truenas.local", "wss://truenas.local/api/current"},
 	}
 
 	for _, tc := range tests {
