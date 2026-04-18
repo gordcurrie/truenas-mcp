@@ -5,8 +5,13 @@ import (
 	"fmt"
 )
 
-// ErrNotFound is returned when a requested resource does not exist (HTTP 404).
+// ErrNotFound is returned when a requested TrueNAS resource does not exist.
 var ErrNotFound = errors.New("resource not found")
+
+// ErrMethodNotFound is returned when the TrueNAS API returns JSON-RPC -32601
+// (method not found). This typically means an older TrueNAS build that does not
+// implement the requested RPC method.
+var ErrMethodNotFound = errors.New("RPC method not found")
 
 // APIError represents a non-2xx response from the TrueNAS API.
 type APIError struct {

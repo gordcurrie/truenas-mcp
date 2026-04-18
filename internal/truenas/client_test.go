@@ -58,7 +58,11 @@ func wsTestServer(t *testing.T, handlers map[string]methodHandler) *httptest.Ser
 				if e != nil {
 					rpcErr = e
 				} else {
-					result, _ = json.Marshal(v)
+					var marshalErr error
+					result, marshalErr = json.Marshal(v)
+					if marshalErr != nil {
+						rpcErr = &rpcError{Code: -32603, Message: "internal: marshal error: " + marshalErr.Error()}
+					}
 				}
 			} else {
 				rpcErr = &rpcError{Code: -32601, Message: "method not found: " + frame.Method}
@@ -71,8 +75,14 @@ func wsTestServer(t *testing.T, handlers map[string]methodHandler) *httptest.Ser
 				resp["result"] = result
 			}
 
-			out, _ := json.Marshal(resp)
-			_ = conn.WriteMessage(websocket.TextMessage, out)
+			out, marshalErr := json.Marshal(resp)
+			if marshalErr != nil {
+				t.Errorf("marshal response: %v", marshalErr)
+				return
+			}
+			if writeErr := conn.WriteMessage(websocket.TextMessage, out); writeErr != nil {
+				return // client disconnected
+			}
 		}
 	}))
 	return srv

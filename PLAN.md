@@ -37,9 +37,9 @@ VM on TrueNAS SCALE automatically from the Proxmox MCP.
   `wss://nas.example.com/api/current` automatically
 - Auth: connect, then call `auth.login_with_api_key` with the API key as the single param
 - Request format: `{"jsonrpc":"2.0","id":N,"method":"service.method","params":[...]}`
-- Query methods accept `[filters, options]` params — e.g. `[["name","=","tank"]], {"limit":10}]`
-- Long-running operations return a job ID — call `core.get_jobs` with `[["id","=",N]]` filter
-  to poll until `state` reaches `SUCCESS`, `FAILED`, or `ABORTED`
+- Query methods accept `[filters, options]` params — e.g. `[[["name","=","tank"]], {"limit":10}]`
+- Long-running operations return a job ID — call `core.get_jobs` with params like
+  `[[["id","=",N]], {}]` to poll until `state` reaches `SUCCESS`, `FAILED`, or `ABORTED`
 - API docs: `https://api.truenas.com/v26.0/`
 - API key is created in the TrueNAS UI under Credentials → API Keys
 

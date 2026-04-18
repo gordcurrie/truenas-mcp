@@ -27,7 +27,7 @@ type Job struct {
 
 // getJobs fetches the job with the given ID via the core.get_jobs RPC method.
 func (c *Client) getJobs(ctx context.Context, id int) (*Job, error) {
-	// Filter by integer job ID: [["id", "=", N], {}]
+	// Filter by integer job ID: [[["id", "=", N]], {}]
 	params := []any{[]any{[]any{"id", "=", id}}, map[string]any{}}
 	var jobs []Job
 	if err := c.call(ctx, "core.get_jobs", params, &jobs); err != nil {

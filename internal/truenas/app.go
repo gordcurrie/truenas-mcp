@@ -212,18 +212,8 @@ func (c *Client) GetUpgradeSummary(ctx context.Context, name string) (*AppUpgrad
 	var summary AppUpgradeSummary
 	err := c.call(ctx, "app.upgrade_summary", []any{name}, &summary)
 	if err != nil {
-		// In TrueNAS 25.x the REST API returned 422 when no upgrade was available.
-		// In 26.0 the WebSocket API may return an error with a message indicating
-		// no upgrade is available — treat that as a normal "no upgrade" response.
-		var apiErr *APIError
-		if errors.As(err, &apiErr) {
-			lower := strings.ToLower(apiErr.Body)
-			if strings.Contains(lower, "no update") ||
-				strings.Contains(lower, "no upgrade") ||
-				strings.Contains(lower, "up to date") ||
-				strings.Contains(lower, "up-to-date") {
-				return &AppUpgradeSummary{UpgradeAvailable: false}, nil
-			}
+		if noUpgradeAvailable(err) {
+			return &AppUpgradeSummary{UpgradeAvailable: false}, nil
 		}
 		return nil, fmt.Errorf("getting upgrade summary for app %q: %w", name, err)
 	}
@@ -245,4 +235,18 @@ func (c *Client) RollbackApp(ctx context.Context, name, version string) (int, er
 		return 0, fmt.Errorf("rolling back app %q: %w", name, err)
 	}
 	return jobID, nil
+}
+
+// noUpgradeAvailable reports whether err indicates TrueNAS found no pending
+// upgrade for the app — a normal condition, not a failure.
+func noUpgradeAvailable(err error) bool {
+	var apiErr *APIError
+	if !errors.As(err, &apiErr) {
+		return false
+	}
+	lower := strings.ToLower(apiErr.Body)
+	return strings.Contains(lower, "no update") ||
+		strings.Contains(lower, "no upgrade") ||
+		strings.Contains(lower, "up to date") ||
+		strings.Contains(lower, "up-to-date")
 }
