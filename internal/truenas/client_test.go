@@ -166,11 +166,26 @@ func TestClient_Connect_rejectsInvalidKey(t *testing.T) {
 		}
 		defer conn.Close() //nolint:errcheck // test cleanup
 
+		// First message is core.set_options — acknowledge it so Connect proceeds.
 		_, data, _ := conn.ReadMessage()
 		var frame struct {
-			ID int64 `json:"id"`
+			ID     int64  `json:"id"`
+			Method string `json:"method"`
 		}
 		_ = json.Unmarshal(data, &frame)
+		if frame.Method == "core.set_options" {
+			ack, _ := json.Marshal(map[string]any{
+				"jsonrpc": "2.0",
+				"id":      frame.ID,
+				"result":  nil,
+			})
+			_ = conn.WriteMessage(websocket.TextMessage, ack)
+			// Read the actual auth message next.
+			_, data, _ = conn.ReadMessage()
+			_ = json.Unmarshal(data, &frame)
+		}
+
+		// Reject the auth call.
 		resp, _ := json.Marshal(map[string]any{
 			"jsonrpc": "2.0",
 			"id":      frame.ID,

@@ -158,7 +158,7 @@ any changes to the `tools/` layer.
 
 **Key design decisions**:
 - Single persistent connection; fail fast on disconnect (no auto-reconnect)
-- `NewClient(host, apiKey string, insecure bool) *Client` — no error return (connection is lazy)
+- `NewClient(host, apiKey string, insecure bool) (*Client, error)` — validates configuration eagerly (non-empty host/key, normalises URL); network connection is still lazy until `Connect(ctx)`
 - `Connect(ctx context.Context) error` — dials, authenticates, starts `readLoop`
 - `call(ctx, method string, params, result any) error` — registers pending channel, sends request, waits
 - Error mapping: RPC error code `-32001` → inspect message/errname → `ErrNotFound` or `*APIError`

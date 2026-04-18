@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -50,6 +51,7 @@ type Client struct {
 	insecure  bool
 	conn      *websocket.Conn
 	mu        sync.Mutex // protects conn writes and pending map
+	reconMu   sync.Mutex // serialises reconnection attempts
 	nextID    atomic.Int64
 	pending   map[int64]chan rpcResponse
 	done      chan struct{}
@@ -70,6 +72,16 @@ func NewClient(host, apiKey string, insecure bool) (*Client, error) {
 	if apiKey == "" {
 		return nil, fmt.Errorf("apiKey must not be empty")
 	}
+	// Normalize the host URL: strip any path so that legacy values like
+	// "https://nas.local/api/v2.0" don't produce a double-path WebSocket URL.
+	u, err := url.Parse(host)
+	if err != nil {
+		return nil, fmt.Errorf("invalid host URL %q: %w", host, err)
+	}
+	u.Path = ""
+	u.RawQuery = ""
+	u.Fragment = ""
+	host = u.String()
 	return &Client{
 		host:     strings.TrimRight(host, "/"),
 		apiKey:   apiKey,
@@ -119,9 +131,21 @@ func (c *Client) Connect(ctx context.Context) error {
 
 	go c.readLoop()
 
+	// Initialise the session. The official TrueNAS client always calls
+	// core.set_options immediately after connecting to configure session
+	// behaviour (e.g. new-style job IDs). Skipping it can cause the server to
+	// reject subsequent calls on some TrueNAS 25.04+ builds.
+	var setOptsResult any
+	if err := c.callOnce(ctx, "core.set_options", []any{map[string]any{
+		"legacy_jobs": false,
+	}}, &setOptsResult); err != nil {
+		// Not fatal — older TrueNAS builds may not have this method. Log and proceed.
+		_ = err
+	}
+
 	// Authenticate with the API key.
 	var ok bool
-	if err := c.call(ctx, "auth.login_with_api_key", []any{c.apiKey}, &ok); err != nil {
+	if err := c.callOnce(ctx, "auth.login_with_api_key", []any{c.apiKey}, &ok); err != nil {
 		_ = c.Close() // best-effort cleanup; auth error takes precedence
 		return fmt.Errorf("authenticating with TrueNAS: %w", err)
 	}
@@ -144,9 +168,57 @@ func (c *Client) Close() error {
 	return closeErr
 }
 
+// reconnect tears down the current (dead) connection and establishes a fresh one.
+// It is safe to call concurrently; only one reconnection attempt runs at a time.
+func (c *Client) reconnect(ctx context.Context) error {
+	c.reconMu.Lock()
+	defer c.reconMu.Unlock()
+
+	// Another goroutine may have already reconnected while we waited for the lock.
+	// Check if done is still closed; if not, the connection is already healthy.
+	select {
+	case <-c.done:
+		// connection is closed — proceed with reconnect
+	default:
+		return nil // already reconnected by a concurrent call
+	}
+
+	// Close the old conn without going through closeOnce (already fired).
+	if c.conn != nil {
+		_ = c.conn.Close()
+	}
+	// Reset connection state.
+	c.mu.Lock()
+	c.pending = make(map[int64]chan rpcResponse)
+	c.done = make(chan struct{})
+	c.closeOnce = sync.Once{}
+	c.mu.Unlock()
+
+	return c.Connect(ctx)
+}
+
 // call sends a JSON-RPC 2.0 request and decodes the result into out.
 // out may be nil if the caller does not need the result.
+// On a broken connection it attempts one transparent reconnect before returning an error.
 func (c *Client) call(ctx context.Context, method string, params, out any) error {
+	err := c.callOnce(ctx, method, params, out)
+	if err == nil {
+		return nil
+	}
+	// If the connection was dropped, attempt one reconnect and retry.
+	select {
+	case <-c.done:
+		if reconnErr := c.reconnect(ctx); reconnErr != nil {
+			return fmt.Errorf("sending RPC request for %s: reconnect failed: %w", method, reconnErr)
+		}
+		return c.callOnce(ctx, method, params, out)
+	default:
+		return err
+	}
+}
+
+// callOnce is the core send-and-wait logic used by call.
+func (c *Client) callOnce(ctx context.Context, method string, params, out any) error {
 	id := c.nextID.Add(1)
 
 	req := rpcRequest{
@@ -164,8 +236,18 @@ func (c *Client) call(ctx context.Context, method string, params, out any) error
 	ch := make(chan rpcResponse, 1)
 
 	c.mu.Lock()
+	if c.conn == nil {
+		c.mu.Unlock()
+		return fmt.Errorf("sending RPC request for %s: client not connected; call Connect first", method)
+	}
+	// Apply a write deadline derived from the caller's context so WriteMessage
+	// doesn't block indefinitely under network backpressure.
+	if deadline, ok := ctx.Deadline(); ok {
+		_ = c.conn.SetWriteDeadline(deadline)
+	}
 	c.pending[id] = ch
 	err = c.conn.WriteMessage(websocket.TextMessage, data)
+	_ = c.conn.SetWriteDeadline(time.Time{}) // clear deadline regardless of outcome
 	c.mu.Unlock()
 
 	if err != nil {
