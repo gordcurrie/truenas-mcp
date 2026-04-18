@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url"
 	"strings"
@@ -153,8 +154,15 @@ func (c *Client) Connect(ctx context.Context) error {
 	if err := c.callOnce(ctx, "core.set_options", []any{map[string]any{
 		"legacy_jobs": false,
 	}}, &setOptsResult); err != nil {
-		// Not fatal — older TrueNAS builds may not have this method. Log and proceed.
-		_ = err
+		// Only suppress JSON-RPC -32601 "method not found"; older TrueNAS builds
+		// don't have core.set_options and that is safe to ignore. Any other error
+		// (connection failure, bad auth, etc.) indicates a real problem.
+		var apiErr *APIError
+		isMethodNotFound := errors.Is(err, ErrNotFound) || (errors.As(err, &apiErr) && apiErr.StatusCode == -32601)
+		if !isMethodNotFound {
+			_ = c.Close()
+			return fmt.Errorf("initialising TrueNAS session: %w", err)
+		}
 	}
 
 	// Authenticate with the API key.

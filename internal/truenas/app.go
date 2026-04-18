@@ -219,8 +219,9 @@ func (c *Client) GetUpgradeSummary(ctx context.Context, name string) (*AppUpgrad
 		if errors.As(err, &apiErr) {
 			lower := strings.ToLower(apiErr.Body)
 			if strings.Contains(lower, "no update") ||
-				strings.Contains(lower, "already") ||
-				strings.Contains(lower, "latest") {
+				strings.Contains(lower, "no upgrade") ||
+				strings.Contains(lower, "up to date") ||
+				strings.Contains(lower, "up-to-date") {
 				return &AppUpgradeSummary{UpgradeAvailable: false}, nil
 			}
 		}

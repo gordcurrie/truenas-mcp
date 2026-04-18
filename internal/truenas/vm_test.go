@@ -323,7 +323,10 @@ func TestListVMDevices_success(t *testing.T) {
 			if err := json.Unmarshal(p[0], &filters); err != nil || len(filters) == 0 {
 				return nil, &rpcError{Code: -32600, Message: "expected filters"}
 			}
-			if filters[0][0] != "vm" || filters[0][1] != "=" {
+			if len(filters[0]) != 3 {
+				return nil, &rpcError{Code: -32600, Message: "wrong filter length"}
+			}
+			if filters[0][0] != "vm" || filters[0][1] != "=" || filters[0][2] != float64(2) {
 				return nil, &rpcError{Code: -32600, Message: "wrong filter field"}
 			}
 			return devices, nil
