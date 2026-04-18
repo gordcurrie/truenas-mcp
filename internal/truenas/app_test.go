@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 )
 
@@ -17,16 +15,11 @@ func TestListApps_success(t *testing.T) {
 		{Name: "redis", State: "STOPPED"},
 	}
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet || r.URL.Path != "/app" {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(apps); err != nil {
-			t.Errorf("encoding response: %v", err)
-		}
-	}))
+	srv := wsTestServer(t, map[string]methodHandler{
+		"app.query": func(_ json.RawMessage) (any, *rpcError) {
+			return apps, nil
+		},
+	})
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
@@ -47,16 +40,11 @@ func TestGetApp_success(t *testing.T) {
 
 	app := App{Name: "nginx", State: "RUNNING"}
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet || r.URL.Path != "/app/id/nginx" {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(app); err != nil {
-			t.Errorf("encoding response: %v", err)
-		}
-	}))
+	srv := wsTestServer(t, map[string]methodHandler{
+		"app.get_instance": func(_ json.RawMessage) (any, *rpcError) {
+			return app, nil
+		},
+	})
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
@@ -72,9 +60,11 @@ func TestGetApp_success(t *testing.T) {
 func TestGetApp_notFound(t *testing.T) {
 	t.Parallel()
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusNotFound)
-	}))
+	srv := wsTestServer(t, map[string]methodHandler{
+		"app.get_instance": func(_ json.RawMessage) (any, *rpcError) {
+			return nil, &rpcError{Code: -32001, Message: "not found"}
+		},
+	})
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
@@ -87,21 +77,11 @@ func TestGetApp_notFound(t *testing.T) {
 func TestStartApp_success(t *testing.T) {
 	t.Parallel()
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost || r.URL.Path != "/app/start" {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		var name string
-		if err := json.NewDecoder(r.Body).Decode(&name); err != nil || name != "nginx" {
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(10); err != nil {
-			t.Errorf("encoding response: %v", err)
-		}
-	}))
+	srv := wsTestServer(t, map[string]methodHandler{
+		"app.start": func(_ json.RawMessage) (any, *rpcError) {
+			return 10, nil
+		},
+	})
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
@@ -117,21 +97,11 @@ func TestStartApp_success(t *testing.T) {
 func TestStopApp_success(t *testing.T) {
 	t.Parallel()
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost || r.URL.Path != "/app/stop" {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		var name string
-		if err := json.NewDecoder(r.Body).Decode(&name); err != nil || name != "nginx" {
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(11); err != nil {
-			t.Errorf("encoding response: %v", err)
-		}
-	}))
+	srv := wsTestServer(t, map[string]methodHandler{
+		"app.stop": func(_ json.RawMessage) (any, *rpcError) {
+			return 11, nil
+		},
+	})
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
@@ -147,22 +117,11 @@ func TestStopApp_success(t *testing.T) {
 func TestRestartApp_success(t *testing.T) {
 	t.Parallel()
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// TrueNAS SCALE uses /app/redeploy (not /restart) with the app name as the JSON body.
-		if r.Method != http.MethodPost || r.URL.Path != "/app/redeploy" {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		var name string
-		if err := json.NewDecoder(r.Body).Decode(&name); err != nil || name != "nginx" {
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(12); err != nil {
-			t.Errorf("encoding response: %v", err)
-		}
-	}))
+	srv := wsTestServer(t, map[string]methodHandler{
+		"app.redeploy": func(_ json.RawMessage) (any, *rpcError) {
+			return 12, nil
+		},
+	})
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
@@ -183,16 +142,11 @@ func TestListImages_success(t *testing.T) {
 		{ID: "sha256:def456", RepoTags: []string{"redis:7"}, Size: 45000000},
 	}
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet || r.URL.Path != "/app/image" {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(images); err != nil {
-			t.Errorf("encoding response: %v", err)
-		}
-	}))
+	srv := wsTestServer(t, map[string]methodHandler{
+		"app.image.query": func(_ json.RawMessage) (any, *rpcError) {
+			return images, nil
+		},
+	})
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
@@ -211,16 +165,11 @@ func TestListImages_success(t *testing.T) {
 func TestCreateApp_catalogSuccess(t *testing.T) {
 	t.Parallel()
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost || r.URL.Path != "/app" {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(42); err != nil {
-			t.Errorf("encoding response: %v", err)
-		}
-	}))
+	srv := wsTestServer(t, map[string]methodHandler{
+		"app.create": func(_ json.RawMessage) (any, *rpcError) {
+			return 42, nil
+		},
+	})
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
@@ -241,16 +190,11 @@ func TestCreateApp_catalogSuccess(t *testing.T) {
 func TestCreateApp_customSuccess(t *testing.T) {
 	t.Parallel()
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost || r.URL.Path != "/app" {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(7); err != nil {
-			t.Errorf("encoding response: %v", err)
-		}
-	}))
+	srv := wsTestServer(t, map[string]methodHandler{
+		"app.create": func(_ json.RawMessage) (any, *rpcError) {
+			return 7, nil
+		},
+	})
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
@@ -270,7 +214,11 @@ func TestCreateApp_customSuccess(t *testing.T) {
 func TestCreateApp_validation(t *testing.T) {
 	t.Parallel()
 
-	c := newTestClient(t, "http://localhost") // no server needed — validation is local
+	// No server needed — validation fires before any network call.
+	c, err := NewClient("http://localhost:19999", "test-api-key", false) //nolint:gosec // G101: fake placeholder
+	if err != nil {
+		t.Fatalf("NewClient: %v", err)
+	}
 
 	tests := []struct {
 		name   string
@@ -298,7 +246,11 @@ func TestCreateApp_validation(t *testing.T) {
 func TestDeleteApp_validation(t *testing.T) {
 	t.Parallel()
 
-	c := newTestClient(t, "http://localhost") // no server needed — validation is local
+	// No server needed — validation fires before any network call.
+	c, err := NewClient("http://localhost:19999", "test-api-key", false) //nolint:gosec // G101: fake placeholder
+	if err != nil {
+		t.Fatalf("NewClient: %v", err)
+	}
 
 	tests := []struct {
 		name    string
@@ -322,13 +274,11 @@ func TestDeleteApp_validation(t *testing.T) {
 func TestDeleteApp_success(t *testing.T) {
 	t.Parallel()
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodDelete || r.URL.Path != "/app/id/my-app" {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		w.WriteHeader(http.StatusOK)
-	}))
+	srv := wsTestServer(t, map[string]methodHandler{
+		"app.delete": func(_ json.RawMessage) (any, *rpcError) {
+			return nil, nil
+		},
+	})
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
@@ -340,9 +290,11 @@ func TestDeleteApp_success(t *testing.T) {
 func TestDeleteApp_notFound(t *testing.T) {
 	t.Parallel()
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusNotFound)
-	}))
+	srv := wsTestServer(t, map[string]methodHandler{
+		"app.delete": func(_ json.RawMessage) (any, *rpcError) {
+			return nil, &rpcError{Code: -32001, Message: "not found"}
+		},
+	})
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
@@ -354,16 +306,11 @@ func TestDeleteApp_notFound(t *testing.T) {
 func TestUpgradeApp_success(t *testing.T) {
 	t.Parallel()
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost || r.URL.Path != "/app/id/my-app/upgrade" {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(20); err != nil {
-			t.Errorf("encoding response: %v", err)
-		}
-	}))
+	srv := wsTestServer(t, map[string]methodHandler{
+		"app.upgrade": func(_ json.RawMessage) (any, *rpcError) {
+			return 20, nil
+		},
+	})
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
@@ -379,7 +326,10 @@ func TestUpgradeApp_success(t *testing.T) {
 func TestUpgradeApp_validation(t *testing.T) {
 	t.Parallel()
 
-	c := newTestClient(t, "http://localhost") // no server needed — validation is local
+	c, err := NewClient("http://localhost:19999", "test-api-key", false) //nolint:gosec // G101: fake placeholder
+	if err != nil {
+		t.Fatalf("NewClient: %v", err)
+	}
 
 	tests := []struct {
 		name    string
@@ -413,23 +363,11 @@ func TestGetUpgradeSummary_success(t *testing.T) {
 		Changelog:                   &changelog,
 	}
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost || r.URL.Path != "/app/upgrade_summary" {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		var body struct {
-			AppName string `json:"app_name"`
-		}
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.AppName != "my-app" {
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(summary); err != nil {
-			t.Errorf("encoding response: %v", err)
-		}
-	}))
+	srv := wsTestServer(t, map[string]methodHandler{
+		"app.upgrade_summary": func(_ json.RawMessage) (any, *rpcError) {
+			return summary, nil
+		},
+	})
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
@@ -454,28 +392,18 @@ func TestGetUpgradeSummary_success(t *testing.T) {
 func TestGetUpgradeSummary_noUpgrade(t *testing.T) {
 	t.Parallel()
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost || r.URL.Path != "/app/upgrade_summary" {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		var body struct {
-			AppName string `json:"app_name"`
-		}
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.AppName != "my-app" {
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusUnprocessableEntity)
-		_, _ = w.Write([]byte(`{"message":"No upgrade available for 'my-app'","errno":14}`))
-	}))
+	srv := wsTestServer(t, map[string]methodHandler{
+		"app.upgrade_summary": func(_ json.RawMessage) (any, *rpcError) {
+			e := &rpcError{Code: -32001, Message: "no update available"}
+			return nil, e
+		},
+	})
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
 	got, err := c.GetUpgradeSummary(context.Background(), "my-app")
 	if err != nil {
-		t.Fatalf("expected no error for 422 no-upgrade, got: %v", err)
+		t.Fatalf("expected no error for no-upgrade signal, got: %v", err)
 	}
 	if got.UpgradeAvailable {
 		t.Errorf("UpgradeAvailable = true, want false")
@@ -485,16 +413,11 @@ func TestGetUpgradeSummary_noUpgrade(t *testing.T) {
 func TestRollbackApp_success(t *testing.T) {
 	t.Parallel()
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost || r.URL.Path != "/app/id/my-app/rollback" {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(21); err != nil {
-			t.Errorf("encoding response: %v", err)
-		}
-	}))
+	srv := wsTestServer(t, map[string]methodHandler{
+		"app.rollback": func(_ json.RawMessage) (any, *rpcError) {
+			return 21, nil
+		},
+	})
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
@@ -510,8 +433,11 @@ func TestRollbackApp_success(t *testing.T) {
 func TestRollbackApp_emptyVersion(t *testing.T) {
 	t.Parallel()
 
-	c := newTestClient(t, "http://localhost") // no server needed — validation is local
-	_, err := c.RollbackApp(context.Background(), "my-app", "")
+	c, err := NewClient("http://localhost:19999", "test-api-key", false) //nolint:gosec // G101: fake placeholder
+	if err != nil {
+		t.Fatalf("NewClient: %v", err)
+	}
+	_, err = c.RollbackApp(context.Background(), "my-app", "")
 	if err == nil {
 		t.Fatal("expected error for empty version, got nil")
 	}

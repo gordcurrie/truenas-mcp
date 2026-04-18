@@ -121,7 +121,7 @@ All configuration is via environment variables:
 
 | Variable | Required | Description |
 |---|---|---|
-| `TRUENAS_API_URL` | yes | e.g. `https://truenas.local/api/v2.0` |
+| `TRUENAS_API_URL` | yes | e.g. `https://truenas.local` |
 | `TRUENAS_API_KEY` | yes | API key from TrueNAS UI |
 | `TRUENAS_INSECURE` | no | `true` to skip TLS verification (self-signed certs) |
 | `TRUENAS_ALLOW_DESTRUCTIVE` | no | `true` to enable destructive tools (default: disabled) |
@@ -132,7 +132,7 @@ All configuration is via environment variables:
 
 ```bash
 # stdio (default — for use with local MCP clients)
-TRUENAS_API_URL=https://truenas.local/api/v2.0 \
+TRUENAS_API_URL=https://truenas.local \
 TRUENAS_API_KEY=your-api-key \
 ./truenas-mcp
 
@@ -151,7 +151,7 @@ Create `.vscode/mcp.json` in your workspace (already gitignored):
       "type": "stdio",
       "command": "/path/to/truenas-mcp",
       "env": {
-        "TRUENAS_API_URL": "https://truenas.local/api/v2.0",
+        "TRUENAS_API_URL": "https://truenas.local",
         "TRUENAS_API_KEY": "your-api-key"
       }
     }
@@ -171,7 +171,7 @@ Add the server to `~/Library/Application Support/Claude/claude_desktop_config.js
     "truenas": {
       "command": "/path/to/truenas-mcp",
       "env": {
-        "TRUENAS_API_URL": "https://truenas.local/api/v2.0",
+        "TRUENAS_API_URL": "https://truenas.local",
         "TRUENAS_API_KEY": "your-api-key"
       }
     }
@@ -194,7 +194,7 @@ Add the server to `opencode.json` in your project root (or `~/.config/opencode/o
       "command": ["/path/to/truenas-mcp"],
       "enabled": true,
       "environment": {
-        "TRUENAS_API_URL": "https://truenas.local/api/v2.0",
+        "TRUENAS_API_URL": "https://truenas.local",
         "TRUENAS_API_KEY": "your-api-key"
       }
     }

@@ -3,8 +3,6 @@ package truenas
 import (
 	"context"
 	"encoding/json"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 )
 
@@ -16,16 +14,11 @@ func TestListDirectory_success(t *testing.T) {
 		{Name: "backups", Path: "/mnt/Storage/pbs/backups", Type: "DIRECTORY", Size: 4096},
 	}
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost || r.URL.Path != "/filesystem/listdir" {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(want); err != nil {
-			t.Errorf("encoding response: %v", err)
-		}
-	}))
+	srv := wsTestServer(t, map[string]methodHandler{
+		"filesystem.listdir": func(_ json.RawMessage) (any, *rpcError) {
+			return want, nil
+		},
+	})
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
@@ -47,7 +40,7 @@ func TestListDirectory_success(t *testing.T) {
 func TestListDirectory_emptyPath(t *testing.T) {
 	t.Parallel()
 
-	c, err := NewClient("http://localhost:19999", "test-api-key", false) //nolint:gosec // G101: test-api-key is a fake placeholder, not a real credential
+	c, err := NewClient("http://localhost:19999", "test-api-key", false) //nolint:gosec // G101: fake placeholder
 	if err != nil {
 		t.Fatalf("NewClient: %v", err)
 	}
@@ -60,7 +53,7 @@ func TestListDirectory_emptyPath(t *testing.T) {
 func TestListDirectory_relativePath(t *testing.T) {
 	t.Parallel()
 
-	c, err := NewClient("http://localhost:19999", "test-api-key", false) //nolint:gosec // G101: test-api-key is a fake placeholder, not a real credential
+	c, err := NewClient("http://localhost:19999", "test-api-key", false) //nolint:gosec // G101: fake placeholder
 	if err != nil {
 		t.Fatalf("NewClient: %v", err)
 	}
@@ -73,14 +66,16 @@ func TestListDirectory_relativePath(t *testing.T) {
 func TestListDirectory_serverError(t *testing.T) {
 	t.Parallel()
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError)
-	}))
+	srv := wsTestServer(t, map[string]methodHandler{
+		"filesystem.listdir": func(_ json.RawMessage) (any, *rpcError) {
+			return nil, &rpcError{Code: -32000, Message: "internal error"}
+		},
+	})
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
 	_, err := c.ListDirectory(context.Background(), "/mnt/Storage/pbs")
 	if err == nil {
-		t.Error("expected error on server 500, got nil")
+		t.Error("expected error on server error, got nil")
 	}
 }

@@ -35,12 +35,12 @@ type VM struct {
 	Status          VMStatus `json:"status"`
 }
 
-// stopBody is the request body for the stop VM endpoint.
+// stopBody is the request payload for the vm.stop RPC method.
 type stopBody struct {
 	Force bool `json:"force"`
 }
 
-// CreateVMParams holds the fields for creating a new VM via POST /vm.
+// CreateVMParams holds the fields for creating a new VM.
 // Name and Memory are required; all other fields use TrueNAS defaults when omitted.
 type CreateVMParams struct {
 	// Name is required.
@@ -59,8 +59,8 @@ type CreateVMParams struct {
 	CPUModel        string `json:"cpu_model,omitempty"`        // only used when CPUMode=CUSTOM
 }
 
-// UpdateVMParams holds the fields that can be updated on an existing VM via
-// PUT /vm/id/{id}. Only non-zero/non-empty fields are serialised and sent.
+// UpdateVMParams holds the fields that can be updated on an existing VM.
+// Only non-zero/non-empty fields are serialised and sent.
 type UpdateVMParams struct {
 	Name            string `json:"name,omitempty"`
 	Description     string `json:"description,omitempty"`
@@ -87,9 +87,8 @@ func (c *Client) ListVMs(ctx context.Context, opts ...ListOptions) ([]VM, error)
 	if err := validateListOptions(o); err != nil {
 		return nil, fmt.Errorf("listing VMs: %w", err)
 	}
-	qs := buildQueryString(nil, o)
 	var vms []VM
-	if err := c.get(ctx, "/vm"+qs, &vms); err != nil {
+	if err := c.call(ctx, "vm.query", buildQueryParams(nil, o), &vms); err != nil {
 		return nil, fmt.Errorf("listing VMs: %w", err)
 	}
 	return vms, nil
@@ -98,7 +97,7 @@ func (c *Client) ListVMs(ctx context.Context, opts ...ListOptions) ([]VM, error)
 // GetVM returns a single VM by its numeric ID.
 func (c *Client) GetVM(ctx context.Context, id int) (*VM, error) {
 	var vm VM
-	if err := c.get(ctx, fmt.Sprintf("/vm/id/%d", id), &vm); err != nil {
+	if err := c.call(ctx, "vm.get_instance", []any{id}, &vm); err != nil {
 		return nil, fmt.Errorf("getting VM %d: %w", id, err)
 	}
 	return &vm, nil
@@ -108,7 +107,7 @@ func (c *Client) GetVM(ctx context.Context, id int) (*VM, error) {
 // The job can be polled for completion using PollJob.
 func (c *Client) StartVM(ctx context.Context, id int) (int, error) {
 	var jobID int
-	if err := c.post(ctx, fmt.Sprintf("/vm/id/%d/start", id), &jobID); err != nil {
+	if err := c.call(ctx, "vm.start", []any{id}, &jobID); err != nil {
 		return 0, fmt.Errorf("starting VM %d: %w", id, err)
 	}
 	return jobID, nil
@@ -119,7 +118,7 @@ func (c *Client) StartVM(ctx context.Context, id int) (int, error) {
 // The job can be polled for completion using PollJob.
 func (c *Client) StopVM(ctx context.Context, id int, force bool) (int, error) {
 	var jobID int
-	if err := c.postWithBody(ctx, fmt.Sprintf("/vm/id/%d/stop", id), stopBody{Force: force}, &jobID); err != nil {
+	if err := c.call(ctx, "vm.stop", []any{id, stopBody{Force: force}}, &jobID); err != nil {
 		return 0, fmt.Errorf("stopping VM %d: %w", id, err)
 	}
 	return jobID, nil
@@ -129,7 +128,7 @@ func (c *Client) StopVM(ctx context.Context, id int, force bool) (int, error) {
 // The job can be polled for completion using PollJob.
 func (c *Client) RestartVM(ctx context.Context, id int) (int, error) {
 	var jobID int
-	if err := c.post(ctx, fmt.Sprintf("/vm/id/%d/restart", id), &jobID); err != nil {
+	if err := c.call(ctx, "vm.restart", []any{id}, &jobID); err != nil {
 		return 0, fmt.Errorf("restarting VM %d: %w", id, err)
 	}
 	return jobID, nil
@@ -152,7 +151,7 @@ func (c *Client) CreateVM(ctx context.Context, params *CreateVMParams) (*VM, err
 	}
 
 	var vm VM
-	if err := c.postWithBody(ctx, "/vm", params, &vm); err != nil {
+	if err := c.call(ctx, "vm.create", []any{params}, &vm); err != nil {
 		return nil, fmt.Errorf("creating VM %q: %w", params.Name, err)
 	}
 	return &vm, nil
@@ -175,7 +174,7 @@ func (c *Client) UpdateVM(ctx context.Context, id int, params *UpdateVMParams) (
 		return nil, fmt.Errorf("updating VM %d: memory must be positive when provided", id)
 	}
 	var vm VM
-	if err := c.put(ctx, fmt.Sprintf("/vm/id/%d", id), params, &vm); err != nil {
+	if err := c.call(ctx, "vm.update", []any{id, params}, &vm); err != nil {
 		return nil, fmt.Errorf("updating VM %d: %w", id, err)
 	}
 	return &vm, nil
@@ -184,7 +183,7 @@ func (c *Client) UpdateVM(ctx context.Context, id int, params *UpdateVMParams) (
 // DeleteVM permanently deletes the VM with the given ID.
 // The VM must be stopped before deletion.
 func (c *Client) DeleteVM(ctx context.Context, id int) error {
-	if err := c.delete(ctx, fmt.Sprintf("/vm/id/%d", id)); err != nil {
+	if err := c.call(ctx, "vm.delete", []any{id}, nil); err != nil {
 		return fmt.Errorf("deleting VM %d: %w", id, err)
 	}
 	return nil
@@ -238,7 +237,7 @@ type AddVMDeviceParams struct {
 	Order      *int           `json:"order,omitempty"`
 }
 
-// addVMDeviceWire is the JSON shape the TrueNAS API actually expects:
+// addVMDeviceWire is the JSON shape the TrueNAS API expects:
 // dtype lives inside attributes, not at the top level.
 type addVMDeviceWire struct {
 	VMID       int            `json:"vm"`
@@ -247,18 +246,12 @@ type addVMDeviceWire struct {
 }
 
 // ListVMDevices returns all devices attached to the VM with the given ID.
-// It fetches all devices from the API and filters them by VM ID client-side.
 func (c *Client) ListVMDevices(ctx context.Context, vmID int) ([]VMDevice, error) {
-	var all []VMDevice
-	if err := c.get(ctx, "/vm/device", &all); err != nil {
-		return nil, fmt.Errorf("listing VM devices: %w", err)
-	}
-
+	// Filter by integer VM ID on the server side.
+	params := []any{[]any{[]any{"vm", "=", vmID}}, map[string]any{}}
 	var devices []VMDevice
-	for _, d := range all {
-		if d.VMID == vmID {
-			devices = append(devices, d)
-		}
+	if err := c.call(ctx, "vm.device.query", params, &devices); err != nil {
+		return nil, fmt.Errorf("listing VM devices: %w", err)
 	}
 	return devices, nil
 }
@@ -297,7 +290,7 @@ func (c *Client) AddVMDevice(ctx context.Context, params *AddVMDeviceParams) (*V
 	}
 
 	var device VMDevice
-	if err := c.postWithBody(ctx, "/vm/device", wire, &device); err != nil {
+	if err := c.call(ctx, "vm.device.create", []any{wire}, &device); err != nil {
 		return nil, fmt.Errorf("adding %s device to VM %d: %w", params.DType, params.VMID, err)
 	}
 	return &device, nil
@@ -305,7 +298,7 @@ func (c *Client) AddVMDevice(ctx context.Context, params *AddVMDeviceParams) (*V
 
 // DeleteVMDevice removes the device with the given ID from its VM.
 func (c *Client) DeleteVMDevice(ctx context.Context, deviceID int) error {
-	if err := c.delete(ctx, fmt.Sprintf("/vm/device/id/%d", deviceID)); err != nil {
+	if err := c.call(ctx, "vm.device.delete", []any{deviceID}, nil); err != nil {
 		return fmt.Errorf("deleting VM device %d: %w", deviceID, err)
 	}
 	return nil

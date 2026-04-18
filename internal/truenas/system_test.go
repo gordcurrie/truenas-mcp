@@ -3,8 +3,6 @@ package truenas
 import (
 	"context"
 	"encoding/json"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 )
 
@@ -12,7 +10,7 @@ func TestGetSystemInfo(t *testing.T) {
 	t.Parallel()
 
 	want := SystemInfo{
-		Version:       "TrueNAS-SCALE-24.10.2",
+		Version:       "TrueNAS-SCALE-26.0",
 		Hostname:      "truenas",
 		PhysMem:       17179869184,
 		Model:         "QEMU Virtual CPU version 2.5+",
@@ -24,16 +22,11 @@ func TestGetSystemInfo(t *testing.T) {
 		Manufacturer:  "iXsystems",
 	}
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/system/info" {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(want); err != nil {
-			t.Errorf("encoding response: %v", err)
-		}
-	}))
+	srv := wsTestServer(t, map[string]methodHandler{
+		"system.info": func(_ json.RawMessage) (any, *rpcError) {
+			return want, nil
+		},
+	})
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
@@ -59,10 +52,11 @@ func TestGetSystemInfo(t *testing.T) {
 func TestGetSystemInfo_serverError(t *testing.T) {
 	t.Parallel()
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError)
-		_, _ = w.Write([]byte(`{"message":"internal error"}`))
-	}))
+	srv := wsTestServer(t, map[string]methodHandler{
+		"system.info": func(_ json.RawMessage) (any, *rpcError) {
+			return nil, &rpcError{Code: -32000, Message: "internal error"}
+		},
+	})
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)

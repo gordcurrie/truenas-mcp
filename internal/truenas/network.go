@@ -26,7 +26,7 @@ type Interface struct {
 // ListInterfaces returns all network interfaces configured on the TrueNAS host.
 func (c *Client) ListInterfaces(ctx context.Context) ([]Interface, error) {
 	var ifaces []Interface
-	if err := c.get(ctx, "/interface", &ifaces); err != nil {
+	if err := c.call(ctx, "interface.query", buildQueryParams(nil, ListOptions{}), &ifaces); err != nil {
 		return nil, fmt.Errorf("listing interfaces: %w", err)
 	}
 	return ifaces, nil

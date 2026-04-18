@@ -1,195 +1,252 @@
 package truenas
 
 import (
-	"bytes"
 	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"io"
-	"log/slog"
-	"net/http"
+	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
+
+	"github.com/gorilla/websocket"
 )
 
-const defaultTimeout = 30 * time.Second
+const wsHandshakeTimeout = 10 * time.Second
 
-// Client is a TrueNAS SCALE API client that authenticates using an API key.
+// rpcRequest is a JSON-RPC 2.0 request frame sent to TrueNAS.
+type rpcRequest struct {
+	JSONRPC string `json:"jsonrpc"`
+	ID      int64  `json:"id"`
+	Method  string `json:"method"`
+	Params  any    `json:"params"`
+}
+
+// rpcResponse is a JSON-RPC 2.0 response frame received from TrueNAS.
+type rpcResponse struct {
+	JSONRPC string          `json:"jsonrpc"`
+	ID      *int64          `json:"id"`
+	Result  json.RawMessage `json:"result"`
+	Error   *rpcError       `json:"error"`
+}
+
+// rpcError is the error object in a JSON-RPC 2.0 error response.
+type rpcError struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	Data    struct {
+		ErrName string `json:"errname"`
+		Reason  string `json:"reason"`
+	} `json:"data"`
+}
+
+// Client is a TrueNAS SCALE API client that communicates via WebSocket JSON-RPC 2.0.
 // All methods require a context.Context as the first parameter.
+// Call Connect before using any API methods.
 type Client struct {
-	baseURL    string
-	httpClient *http.Client
-	apiKey     string
+	host      string // base URL, e.g. "https://truenas.local"
+	apiKey    string
+	insecure  bool
+	conn      *websocket.Conn
+	mu        sync.Mutex // protects conn writes and pending map
+	nextID    atomic.Int64
+	pending   map[int64]chan rpcResponse
+	done      chan struct{}
+	closeOnce sync.Once
 }
 
 // NewClient creates a new TrueNAS SCALE API client.
 //
-// apiURL must be the full base URL including the API version prefix,
-// e.g. "https://truenas.local/api/v2.0".
-// apiKey is the API key created in TrueNAS UI under Credentials → API Keys.
-// insecure, when true, disables TLS certificate verification — only use this
-// when your TrueNAS host uses a self-signed certificate and you understand the risks.
-func NewClient(apiURL, apiKey string, insecure bool) (*Client, error) {
-	if apiURL == "" {
-		return nil, fmt.Errorf("apiURL must not be empty")
+// host is the base URL of the TrueNAS host, e.g. "https://truenas.local".
+// The client derives the WebSocket endpoint (wss://truenas.local/api/current) automatically.
+// insecure, when true, disables TLS certificate verification — only use this when your
+// TrueNAS host uses a self-signed certificate and you understand the risks.
+// Call Connect(ctx) before using any API methods.
+func NewClient(host, apiKey string, insecure bool) (*Client, error) {
+	if host == "" {
+		return nil, fmt.Errorf("host must not be empty")
 	}
 	if apiKey == "" {
 		return nil, fmt.Errorf("apiKey must not be empty")
 	}
-
-	transport := &http.Transport{}
-	if insecure {
-		transport.TLSClientConfig = &tls.Config{
-			InsecureSkipVerify: true, /* #nosec G402 */ //nolint:gosec // G402: InsecureSkipVerify is only set when TRUENAS_INSECURE=true, which the user must explicitly opt into. Default is secure (verify enabled).
-		}
-	}
-
 	return &Client{
-		baseURL: apiURL,
-		httpClient: &http.Client{
-			Transport: transport,
-			Timeout:   defaultTimeout,
-		},
-		apiKey: apiKey,
+		host:     strings.TrimRight(host, "/"),
+		apiKey:   apiKey,
+		insecure: insecure,
+		pending:  make(map[int64]chan rpcResponse),
+		done:     make(chan struct{}),
 	}, nil
 }
 
-// get performs an authenticated GET request to path (relative to baseURL)
-// and JSON-decodes the result into result (which must be a pointer).
-func (c *Client) get(ctx context.Context, path string, result any) error {
-	resp, err := c.do(ctx, http.MethodGet, path, nil)
-	if err != nil {
-		return err
+// wsURL derives the WebSocket URL from the HTTP base URL.
+//
+//	https://nas.example.com → wss://nas.example.com/api/current
+//	http://nas.example.com  → ws://nas.example.com/api/current
+func (c *Client) wsURL() string {
+	u := strings.TrimRight(c.host, "/")
+	switch {
+	case strings.HasPrefix(u, "https://"):
+		return "wss://" + strings.TrimPrefix(u, "https://") + "/api/current"
+	case strings.HasPrefix(u, "http://"):
+		return "ws://" + strings.TrimPrefix(u, "http://") + "/api/current"
+	default:
+		return "wss://" + u + "/api/current"
 	}
-	defer func() {
-		if err := resp.Body.Close(); err != nil {
-			slog.Warn("closing get response body", "err", err)
-		}
-	}()
-
-	return c.decode(resp.Body, result)
 }
 
-// post performs an authenticated POST request to path (relative to baseURL)
-// and JSON-decodes the result into result (which must be a pointer).
-// To POST with a request body, use postWithBody.
-func (c *Client) post(ctx context.Context, path string, result any) error {
-	resp, err := c.do(ctx, http.MethodPost, path, nil)
-	if err != nil {
-		return err
+// Connect opens the WebSocket connection to TrueNAS and authenticates with the API key.
+// Must be called before any API methods. Returns an error if the connection or
+// authentication fails.
+func (c *Client) Connect(ctx context.Context) error {
+	wsAddr := c.wsURL()
+
+	dialer := websocket.Dialer{
+		HandshakeTimeout: wsHandshakeTimeout,
 	}
-	defer func() {
-		if err := resp.Body.Close(); err != nil {
-			slog.Warn("closing post response body", "err", err)
+	if c.insecure {
+		dialer.TLSClientConfig = &tls.Config{InsecureSkipVerify: true} /* #nosec G402 */ //nolint:gosec // G402: InsecureSkipVerify is only set when TRUENAS_INSECURE=true, which the user must explicitly opt into. Default is secure (verify enabled).
+	}
+
+	conn, resp, err := dialer.DialContext(ctx, wsAddr, nil) //nolint:bodyclose // WebSocket upgrade response body is managed by conn after successful upgrade
+	if err != nil {
+		if resp != nil {
+			_ = resp.Body.Close()
 		}
-	}()
-
-	return c.decode(resp.Body, result)
-}
-
-// postWithBody performs an authenticated POST request to path with body
-// marshalled as JSON, and decodes the response into result.
-func (c *Client) postWithBody(ctx context.Context, path string, body, result any) error {
-	data, err := json.Marshal(body)
-	if err != nil {
-		return fmt.Errorf("marshalling request body: %w", err)
+		return fmt.Errorf("connecting to TrueNAS at %s: %w", wsAddr, err)
 	}
+	c.conn = conn
 
-	resp, err := c.do(ctx, http.MethodPost, path, bytes.NewReader(data))
-	if err != nil {
-		return err
+	go c.readLoop()
+
+	// Authenticate with the API key.
+	var ok bool
+	if err := c.call(ctx, "auth.login_with_api_key", []any{c.apiKey}, &ok); err != nil {
+		_ = c.Close() // best-effort cleanup; auth error takes precedence
+		return fmt.Errorf("authenticating with TrueNAS: %w", err)
 	}
-	defer func() {
-		if err := resp.Body.Close(); err != nil {
-			slog.Warn("closing postWithBody response body", "err", err)
-		}
-	}()
-
-	return c.decode(resp.Body, result)
-}
-
-// delete performs an authenticated DELETE request to path (relative to baseURL).
-// The response body is drained to io.Discard and closed to allow connection reuse.
-func (c *Client) delete(ctx context.Context, path string) error {
-	resp, err := c.do(ctx, http.MethodDelete, path, nil)
-	if err != nil {
-		return err
+	if !ok {
+		_ = c.Close() // best-effort cleanup
+		return fmt.Errorf("TrueNAS rejected the API key")
 	}
-	defer func() {
-		if err := resp.Body.Close(); err != nil {
-			slog.Warn("closing delete response body", "err", err)
-		}
-	}()
-	// Drain the body (best-effort) so the underlying TCP connection can be reused.
-	_, _ = io.Copy(io.Discard, resp.Body)
 	return nil
 }
 
-// put performs an authenticated PUT request to path with body marshalled as
-// JSON and decodes the response into result.
-func (c *Client) put(ctx context.Context, path string, body, result any) error {
-	data, err := json.Marshal(body)
-	if err != nil {
-		return fmt.Errorf("marshalling request body: %w", err)
-	}
-
-	resp, err := c.do(ctx, http.MethodPut, path, bytes.NewReader(data))
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err := resp.Body.Close(); err != nil {
-			slog.Warn("closing put response body", "err", err)
+// Close closes the WebSocket connection and unblocks any pending calls.
+func (c *Client) Close() error {
+	var closeErr error
+	c.closeOnce.Do(func() {
+		close(c.done)
+		if c.conn != nil {
+			closeErr = c.conn.Close()
 		}
-	}()
-
-	return c.decode(resp.Body, result)
+	})
+	return closeErr
 }
 
-// do constructs and executes an HTTP request, handling auth headers and error
-// status codes. The caller is responsible for closing resp.Body.
-func (c *Client) do(ctx context.Context, method, path string, body io.Reader) (*http.Response, error) {
-	req, err := http.NewRequestWithContext(ctx, method, c.baseURL+path, body)
+// call sends a JSON-RPC 2.0 request and decodes the result into out.
+// out may be nil if the caller does not need the result.
+func (c *Client) call(ctx context.Context, method string, params, out any) error {
+	id := c.nextID.Add(1)
+
+	req := rpcRequest{
+		JSONRPC: "2.0",
+		ID:      id,
+		Method:  method,
+		Params:  params,
+	}
+
+	data, err := json.Marshal(req)
 	if err != nil {
-		return nil, fmt.Errorf("creating request %s %s: %w", method, path, err)
+		return fmt.Errorf("marshalling RPC request for %s: %w", method, err)
 	}
 
-	req.Header.Set("Authorization", "Bearer "+c.apiKey)
-	if body != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
+	ch := make(chan rpcResponse, 1)
 
-	resp, err := c.httpClient.Do(req) /* #nosec G107 */ //nolint:gosec // G107: URL is constructed from TRUENAS_API_URL which the user must explicitly supply
+	c.mu.Lock()
+	c.pending[id] = ch
+	err = c.conn.WriteMessage(websocket.TextMessage, data)
+	c.mu.Unlock()
+
 	if err != nil {
-		return nil, fmt.Errorf("executing request %s %s: %w", method, path, err)
+		c.mu.Lock()
+		delete(c.pending, id)
+		c.mu.Unlock()
+		return fmt.Errorf("sending RPC request for %s: %w", method, err)
 	}
 
-	if resp.StatusCode == http.StatusNotFound {
-		if err := resp.Body.Close(); err != nil {
-			slog.Warn("closing not-found response body", "err", err)
+	select {
+	case <-ctx.Done():
+		c.mu.Lock()
+		delete(c.pending, id)
+		c.mu.Unlock()
+		return fmt.Errorf("RPC call %s: %w", method, ctx.Err())
+	case <-c.done:
+		return fmt.Errorf("RPC call %s: connection closed", method)
+	case resp := <-ch:
+		if resp.Error != nil {
+			return c.mapRPCError(method, resp.Error)
 		}
-		return nil, ErrNotFound
-	}
-
-	if resp.StatusCode >= http.StatusBadRequest {
-		rawBody, _ := io.ReadAll(resp.Body)
-		if err := resp.Body.Close(); err != nil {
-			slog.Warn("closing error response body", "err", err)
+		if out == nil {
+			return nil
 		}
-		return nil, &APIError{StatusCode: resp.StatusCode, Body: string(rawBody)}
-	}
-
-	return resp, nil
-}
-
-// decode reads r and JSON-decodes the response directly into result.
-// Unlike Proxmox, TrueNAS responses are not wrapped in a {"data": ...} envelope.
-func (c *Client) decode(r io.Reader, result any) error {
-	if result == nil {
+		if err := json.Unmarshal(resp.Result, out); err != nil {
+			return fmt.Errorf("decoding RPC result for %s: %w", method, err)
+		}
 		return nil
 	}
-	if err := json.NewDecoder(r).Decode(result); err != nil {
-		return fmt.Errorf("decoding API response: %w", err)
+}
+
+// readLoop reads WebSocket frames and routes responses to pending callers.
+// Runs as a goroutine until the connection is closed or an error occurs.
+func (c *Client) readLoop() {
+	defer func() {
+		c.closeOnce.Do(func() { close(c.done) })
+		// Unblock all pending callers with a connection-closed error.
+		connClosed := &rpcError{Code: -32000, Message: "connection closed"}
+		c.mu.Lock()
+		for id, ch := range c.pending {
+			ch <- rpcResponse{Error: connClosed}
+			delete(c.pending, id)
+		}
+		c.mu.Unlock()
+	}()
+
+	for {
+		_, data, err := c.conn.ReadMessage()
+		if err != nil {
+			return
+		}
+		var resp rpcResponse
+		if err := json.Unmarshal(data, &resp); err != nil {
+			continue // skip malformed frames
+		}
+		if resp.ID == nil {
+			continue // server notification — no pending caller
+		}
+		c.mu.Lock()
+		ch, ok := c.pending[*resp.ID]
+		if ok {
+			delete(c.pending, *resp.ID)
+		}
+		c.mu.Unlock()
+		if ok {
+			ch <- resp
+		}
 	}
-	return nil
+}
+
+// mapRPCError converts a JSON-RPC error response into ErrNotFound or *APIError.
+func (c *Client) mapRPCError(method string, e *rpcError) error {
+	haystack := strings.ToLower(e.Message + " " + e.Data.ErrName + " " + e.Data.Reason)
+	if strings.Contains(haystack, "not found") ||
+		strings.Contains(haystack, "does not exist") ||
+		strings.EqualFold(e.Data.ErrName, "NOT_FOUND") {
+		return ErrNotFound
+	}
+	body := e.Data.Reason
+	if body == "" {
+		body = e.Message
+	}
+	return &APIError{StatusCode: e.Code, Body: fmt.Sprintf("%s: %s", method, body)}
 }

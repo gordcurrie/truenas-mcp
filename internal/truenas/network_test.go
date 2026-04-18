@@ -3,8 +3,6 @@ package truenas
 import (
 	"context"
 	"encoding/json"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 )
 
@@ -16,16 +14,11 @@ func TestListInterfaces_success(t *testing.T) {
 		{ID: "enp1s0", Name: "enp1s0", Type: "PHYSICAL", Description: ""},
 	}
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet || r.URL.Path != "/interface" {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(want); err != nil {
-			t.Errorf("encoding response: %v", err)
-		}
-	}))
+	srv := wsTestServer(t, map[string]methodHandler{
+		"interface.query": func(_ json.RawMessage) (any, *rpcError) {
+			return want, nil
+		},
+	})
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
@@ -47,14 +40,16 @@ func TestListInterfaces_success(t *testing.T) {
 func TestListInterfaces_serverError(t *testing.T) {
 	t.Parallel()
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError)
-	}))
+	srv := wsTestServer(t, map[string]methodHandler{
+		"interface.query": func(_ json.RawMessage) (any, *rpcError) {
+			return nil, &rpcError{Code: -32000, Message: "internal error"}
+		},
+	})
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
 	_, err := c.ListInterfaces(context.Background())
 	if err == nil {
-		t.Error("expected error on server 500, got nil")
+		t.Error("expected error on server error, got nil")
 	}
 }

@@ -32,7 +32,7 @@ func (c *Client) ListDirectory(ctx context.Context, path string) ([]DirEntry, er
 		return nil, fmt.Errorf("listing directory: path must be absolute (start with /), got %q", path)
 	}
 	var entries []DirEntry
-	if err := c.postWithBody(ctx, "/filesystem/listdir", listDirRequest{Path: path}, &entries); err != nil {
+	if err := c.call(ctx, "filesystem.listdir", []any{listDirRequest{Path: path}}, &entries); err != nil {
 		return nil, fmt.Errorf("listing directory %q: %w", path, err)
 	}
 	return entries, nil

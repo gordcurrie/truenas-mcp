@@ -3,7 +3,7 @@
 ## Summary
 
 Build an MCP server in Go that exposes TrueNAS SCALE operations as MCP tools.
-Uses the official `modelcontextprotocol/go-sdk`, a custom TrueNAS REST API HTTP client
+Uses the official `modelcontextprotocol/go-sdk`, a custom WebSocket JSON-RPC 2.0 client
 (no third-party TrueNAS library), API key auth, and strict linting enforced via
 `golangci-lint`, `gosec`, `govulncheck`, and `go fix`.
 
@@ -11,13 +11,18 @@ Uses the official `modelcontextprotocol/go-sdk`, a custom TrueNAS REST API HTTP 
 cross-product workflows — the first target being provisioning a Proxmox Backup Server (PBS)
 VM on TrueNAS SCALE automatically from the Proxmox MCP.
 
+> **TrueNAS 26.0 note**: TrueNAS 26.0.0 dropped the HTTP REST API (`/api/v2.0`) entirely.
+> The server now exposes a **JSON-RPC 2.0 over WebSocket** API at `wss://<host>/api/current`.
+> The client was migrated in the "WS Migration" phase below.
+
 ## Decisions
 
 | Decision | Choice | Rationale |
 |---|---|---|
 | MCP SDK | `github.com/modelcontextprotocol/go-sdk` | Official Go SDK, same as proxmox-mcp |
-| TrueNAS client | Custom `net/http` wrapper | Full control, no external dep, easy to extend |
-| Auth | API key (`Authorization: Bearer <key>`) | Stateless, no session tokens, matches TrueNAS REST auth |
+| TrueNAS client | Custom WebSocket JSON-RPC 2.0 client | Full control, required for TrueNAS 26.0+ |
+| WS library | `github.com/gorilla/websocket` | Battle-tested, MIT, minimal footprint |
+| Auth | API key via `auth.login_with_api_key` RPC call | TrueNAS 26.0 WS auth — no Bearer header |
 | Transports | Both stdio + HTTP (flag-selected) | stdio for local clients, HTTP for remote/shared |
 | Linter | `golangci-lint` + `gosec` + `govulncheck` | Security-first, idiomatic Go — same as proxmox-mcp |
 | Formatter | `gofumpt` (stricter than `gofmt`) | Consistent style |
@@ -27,12 +32,15 @@ VM on TrueNAS SCALE automatically from the Proxmox MCP.
 
 ## TrueNAS SCALE API Notes
 
-- Base URL: `https://<host>/api/v2.0`
-- All endpoints return JSON directly (no `{"data": ...}` wrapper, unlike Proxmox)
-- Auth header: `Authorization: Bearer <api-key>`
-- Long-running operations return a job ID (`{"id": 123}`) — poll `/core/get_jobs?id=<id>`
-  for completion, same pattern as Proxmox UPIDs
-- API docs available at `https://<host>/api/docs/` on any TrueNAS SCALE instance
+- **TrueNAS 26.0+**: WebSocket JSON-RPC 2.0 at `wss://<host>/api/current`
+- `TRUENAS_API_URL` is the base URL, e.g. `https://nas.example.com` — the client derives
+  `wss://nas.example.com/api/current` automatically
+- Auth: connect, then call `auth.login_with_api_key` with the API key as the single param
+- Request format: `{"jsonrpc":"2.0","id":N,"method":"service.method","params":[...]}`
+- Query methods accept `[filters, options]` params — e.g. `[["name","=","tank"]], {"limit":10}]`
+- Long-running operations return a job ID — call `core.get_jobs` with `[["id","=",N]]` filter
+  to poll until `state` reaches `SUCCESS`, `FAILED`, or `ABORTED`
+- API docs: `https://api.truenas.com/v26.0/`
 - API key is created in the TrueNAS UI under Credentials → API Keys
 
 ## Project Structure
@@ -85,7 +93,7 @@ truenas_mcp/
 
 | Variable | Required | Description |
 |---|---|---|
-| `TRUENAS_API_URL` | yes | Base URL, e.g. `https://truenas.local/api/v2.0` |
+| `TRUENAS_API_URL` | yes | Base URL only, e.g. `https://truenas.local` (no path — client derives `wss://…/api/current`) |
 | `TRUENAS_API_KEY` | yes | API key created in TrueNAS UI under Credentials → API Keys |
 | `TRUENAS_INSECURE` | no | Set `true` to skip TLS verification (self-signed certs) |
 | `TRUENAS_ALLOW_DESTRUCTIVE` | no | Set `true` to register `delete_dataset`, `delete_vm`, `delete_snapshot` (default: disabled) |
@@ -111,136 +119,54 @@ truenas_mcp/
 | `make build` | `go build ./cmd/truenas-mcp/` |
 | `make check` | runs all of the above in order |
 
-## Implementation Phases
+## Migration Plan — WebSocket JSON-RPC 2.0 (TrueNAS 26.0)
+
+TrueNAS 26.0 dropped the HTTP REST API entirely. The entire transport layer must be replaced
+with a WebSocket JSON-RPC 2.0 client. All 25 existing tools must continue to work without
+any changes to the `tools/` layer.
 
 ---
 
-### Phase 1 — Foundation (bootstrapping + system info)
+### PR 1 — New WebSocket client + transport layer
 
-**Goal**: Working binary, client, auth, and basic read-only tools.
+**Goal**: Replace `net/http` transport with a persistent WebSocket JSON-RPC 2.0 connection.
 
 **Tasks**:
-- [ ] `go mod init`, add MCP SDK dependency
-- [ ] Copy `.golangci.yml` and `Makefile` from proxmox-mcp (same rules)
-- [ ] Implement `internal/truenas/client.go` — HTTP client, API key auth, TLS opt-out, context timeouts
-- [ ] Implement `internal/truenas/jobs.go` — poll `/core/get_jobs` until job completes
-- [ ] Implement `internal/truenas/system.go` — `/system/info`, `/system/version`
-- [ ] Implement `tools/system.go` — `get_system_info` tool
-- [ ] Implement `cmd/truenas-mcp/main.go` — flags, env, wire-up, stdio + HTTP transports
+- [ ] Add `github.com/gorilla/websocket` to `go.mod`
+- [ ] Rewrite `internal/truenas/client.go` — persistent WS connection, `auth.login_with_api_key`,
+  per-request channel routing via `pending map[int64]chan rpcResponse`, `readLoop` goroutine, `Close()`
+- [ ] Rewrite `internal/truenas/query.go` — replace `buildQueryString` with `buildQueryParams`
+  returning a JSON-RPC `[]any{filters, options}` params array; keep `ListOptions` and `validateListOptions`
+- [ ] Update `internal/truenas/jobs.go` — replace HTTP GET with `c.call(ctx, "core.get_jobs", ...)`
+- [ ] Update `internal/truenas/system.go` — `system.info` RPC
+- [ ] Update `internal/truenas/pool.go` — `pool.query`, `pool.get_instance`
+- [ ] Update `internal/truenas/dataset.go` — `pool.dataset.query`, `pool.dataset.get_instance`, `pool.dataset.create`
+- [ ] Update `internal/truenas/snapshot.go` — `pool.snapshot.query`, `pool.snapshot.get_instance`,
+  `pool.snapshot.create`, `pool.snapshot.rollback`, `pool.snapshot.delete`
+- [ ] Update `internal/truenas/vm.go` — `vm.query`, `vm.get_instance`, `vm.start`, `vm.stop`,
+  `vm.restart`, `vm.create`, `vm.update`, `vm.delete`, `vm.device.query`, `vm.device.create`, `vm.device.delete`
+- [ ] Update `internal/truenas/app.go` — `app.query`, `app.get_instance`, `app.start`, `app.stop`,
+  `app.redeploy`, `app.create`, `app.delete`, `app.upgrade`, `app.rollback`, `app.upgrade_summary`,
+  `app.image.query`
+- [ ] Update `internal/truenas/network.go` — `interface.query`
+- [ ] Update `internal/truenas/filesystem.go` — `filesystem.listdir`
+- [ ] Update `cmd/truenas-mcp/main.go` — derive `wss://<host>/api/current` from base URL,
+  call `client.Connect(ctx)` on startup; remove `/api/v2.0` path expectation
+- [ ] Rewrite `internal/truenas/client_test.go` — replace `httptest.Server` with a test WS server
+- [ ] Update README — `TRUENAS_API_URL` is base URL only (e.g. `https://truenas.local`)
 - [ ] `make check` passes
 
-**Tools delivered** (~2):
-`get_system_info`, `get_system_version`
+**Key design decisions**:
+- Single persistent connection; fail fast on disconnect (no auto-reconnect)
+- `NewClient(host, apiKey string, insecure bool) *Client` — no error return (connection is lazy)
+- `Connect(ctx context.Context) error` — dials, authenticates, starts `readLoop`
+- `call(ctx, method string, params, result any) error` — registers pending channel, sends request, waits
+- Error mapping: RPC error code `-32001` → inspect message/errname → `ErrNotFound` or `*APIError`
+- `APIError.StatusCode` carries the JSON-RPC error code (not an HTTP status)
 
 ---
 
-### Phase 2 — Storage: Pools & Datasets
-
-**Goal**: Read and create ZFS datasets — the core of the PBS provisioning workflow.
-
-**Tasks**:
-- [ ] `internal/truenas/pool.go` — list pools, get pool status
-- [ ] `internal/truenas/dataset.go` — list datasets, get dataset, create dataset, set dataset properties (quota, compression, etc.)
-- [ ] `tools/pool.go` — `list_pools`, `get_pool`
-- [ ] `tools/dataset.go` — `list_datasets`, `get_dataset`, `create_dataset`
-- [ ] Update README
-
-**Tools delivered** (~5):
-`list_pools`, `get_pool`, `list_datasets`, `get_dataset`, `create_dataset`
-
----
-
-### Phase 3 — VMs
-
-**Goal**: Create, configure, start, stop, and delete VMs — needed for spinning up a PBS VM.
-
-**Tasks**:
-- [ ] `internal/truenas/vm.go` — list VMs, get VM, create VM, update VM, start/stop/restart/delete VM
-- [ ] `tools/vm.go` — read tools + lifecycle tools
-- [ ] `tools/destructive.go` — opt-in `delete_vm`
-- [ ] Update README
-
-**Tools delivered** (~8):
-`list_vms`, `get_vm`, `create_vm`, `update_vm`, `start_vm`, `stop_vm`, `restart_vm`, `delete_vm` (destructive)
-
----
-
-### Phase 4 — ZFS Snapshots
-
-**Goal**: Create, list, roll back, and delete snapshots — useful for pre-backup snapshotting.
-
-**Tasks**:
-- [ ] `internal/truenas/snapshot.go` — list, create, rollback, delete
-- [ ] `tools/snapshot.go` — `list_snapshots`, `create_snapshot`, `rollback_snapshot`
-- [ ] `tools/destructive.go` — opt-in `delete_snapshot`
-- [ ] Update README
-
-**Tools delivered** (~4):
-`list_snapshots`, `create_snapshot`, `rollback_snapshot`, `delete_snapshot` (destructive)
-
----
-
-### Phase 5 — TrueNAS Apps
-
-**Goal**: Manage catalog apps (Helm-based) — useful for deploying containerised workloads
-like PBS if a native app becomes available.
-
-**Tasks**:
-- [ ] `internal/truenas/app.go` — list apps, get app, install app, start/stop app, delete app
-- [ ] `tools/app.go` — `list_apps`, `get_app`, `install_app`, `start_app`, `stop_app`
-- [ ] `tools/destructive.go` — opt-in `delete_app`
-- [ ] Update README
-
-**Tools delivered** (~6):
-`list_apps`, `get_app`, `install_app`, `start_app`, `stop_app`, `delete_app` (destructive)
-
----
-
-### Phase 6 — PBS Provisioning Workflow (the target use case)
-
-**Goal**: End-to-end automated PBS setup driven by an AI agent across both MCPs.
-
-This isn't a new tool — it's a validation that the existing tools compose correctly to
-accomplish the full workflow:
-
-1. `create_dataset` (truenas-mcp) — create `tank/proxmox-backups`
-2. `create_vm` (truenas-mcp) — Debian 12 VM, 2 vCPU, 4GB RAM, 32GB disk, NIC on LAN
-3. `start_vm` (truenas-mcp) — boot the VM
-4. *(manual step)* — install PBS inside the guest via SSH / console
-5. `add_storage` (proxmox-mcp — future tool) — register PBS as backup target
-6. `create_backup_job` (proxmox-mcp — future tool) — schedule all VMs nightly
-
-Document this workflow in README as a worked example.
-
----
-
-### Quality PR — Expert Review Fixes
-
-**Goal**: Address critical issues and selected improvements from the expert MCP review.
-
-**Fixes shipped**:
-- ✅ C2: `WriteTimeout: 90s` added to HTTP server (`cmd/truenas-mcp/main.go`)
-- ✅ C3: `ErrNotFound` surfaced distinctly in all five get-by-ID/name tool handlers
-- ✅ R1: Build-time version injection via `-ldflags "-X main.version=<tag>"`
-- ✅ R4: Tool-layer input validation added to `create_vm` (name + memory guards)
-- ✅ R6: Server-side pagination (`limit`/`offset`) added to all five list endpoints via `ListOptions` + `buildQueryString`; `ListDatasets` pool filter moved server-side
-
----
-
-## Tool Count by Phase
-
-| Phase | New Tools | Running Total |
-|---|---|---|
-| 1 — Foundation | 2 | 2 |
-| 2 — Pools & Datasets | 5 | 7 |
-| 3 — VMs | 8 | 15 |
-| 4 — Snapshots | 4 | 19 |
-| 5 — Apps | 6 | 25 |
-| 6 — PBS Workflow | 0 (validation) | 25 |
-
----
-
-## Security Rules (same as proxmox-mcp)
+## Security Rules
 
 - No credentials in source — env vars only
 - `TRUENAS_INSECURE=true` is the only way to skip TLS — off by default

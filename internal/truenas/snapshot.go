@@ -3,7 +3,6 @@ package truenas
 import (
 	"context"
 	"fmt"
-	"net/url"
 	"strings"
 )
 
@@ -22,8 +21,7 @@ type Snapshot struct {
 	Clones     []string `json:"clones"`
 }
 
-// CreateSnapshotParams holds the fields for creating a ZFS snapshot via
-// POST /pool/snapshot.
+// CreateSnapshotParams holds the fields for creating a ZFS snapshot.
 type CreateSnapshotParams struct {
 	// Dataset is the full dataset path, e.g. "Storage/backups". Required.
 	Dataset string `json:"dataset"`
@@ -44,16 +42,9 @@ type RollbackSnapshotParams struct {
 	Force bool `json:"force,omitempty"`
 }
 
-// snapshotIDPath returns the URL path for a snapshot ID resource.
-// id is the full "dataset@snapname" identifier.
-func snapshotIDPath(id string) string {
-	return "/pool/snapshot/id/" + url.PathEscape(id)
-}
-
 // ListSnapshots returns ZFS snapshots visible to the API.
 // If dataset is non-empty, a server-side query filter is applied so that only
-// snapshots for that dataset are transferred over the wire. This avoids fetching
-// potentially thousands of snapshots when only one dataset's history is needed.
+// snapshots for that dataset are transferred over the wire.
 // Pass a ListOptions value to apply server-side pagination (limit / offset).
 func (c *Client) ListSnapshots(ctx context.Context, dataset string, opts ...ListOptions) ([]Snapshot, error) {
 	if len(opts) > 1 {
@@ -70,9 +61,8 @@ func (c *Client) ListSnapshots(ctx context.Context, dataset string, opts ...List
 	if dataset != "" {
 		filter = [][]string{{"dataset", "=", dataset}}
 	}
-	qs := buildQueryString(filter, o)
 	var snapshots []Snapshot
-	if err := c.get(ctx, "/pool/snapshot"+qs, &snapshots); err != nil {
+	if err := c.call(ctx, "pool.snapshot.query", buildQueryParams(filter, o), &snapshots); err != nil {
 		return nil, fmt.Errorf("listing snapshots: %w", err)
 	}
 	return snapshots, nil
@@ -85,7 +75,7 @@ func (c *Client) GetSnapshot(ctx context.Context, id string) (*Snapshot, error) 
 	}
 
 	var snap Snapshot
-	if err := c.get(ctx, snapshotIDPath(id), &snap); err != nil {
+	if err := c.call(ctx, "pool.snapshot.get_instance", []any{id}, &snap); err != nil {
 		return nil, fmt.Errorf("getting snapshot %q: %w", id, err)
 	}
 	return &snap, nil
@@ -102,7 +92,7 @@ func (c *Client) CreateSnapshot(ctx context.Context, params CreateSnapshotParams
 	}
 
 	var snap Snapshot
-	if err := c.postWithBody(ctx, "/pool/snapshot", params, &snap); err != nil {
+	if err := c.call(ctx, "pool.snapshot.create", []any{params}, &snap); err != nil {
 		return nil, fmt.Errorf("creating snapshot %q@%q: %w", params.Dataset, params.Name, err)
 	}
 	return &snap, nil
@@ -110,14 +100,12 @@ func (c *Client) CreateSnapshot(ctx context.Context, params CreateSnapshotParams
 
 // RollbackSnapshot rolls the dataset back to the specified snapshot.
 // id must be the full "dataset@name" identifier.
-// The API call is synchronous; an error is returned only if the request fails.
 func (c *Client) RollbackSnapshot(ctx context.Context, id string, params RollbackSnapshotParams) error {
 	if dataset, name, ok := strings.Cut(id, "@"); !ok || dataset == "" || name == "" || strings.Contains(name, "@") {
 		return fmt.Errorf("rolling back snapshot: id must be in dataset@name form with non-empty dataset and name, got %q", id)
 	}
 
-	path := snapshotIDPath(id) + "/rollback"
-	if err := c.postWithBody(ctx, path, params, nil); err != nil {
+	if err := c.call(ctx, "pool.snapshot.rollback", []any{id, params}, nil); err != nil {
 		return fmt.Errorf("rolling back snapshot %q: %w", id, err)
 	}
 	return nil
@@ -129,7 +117,7 @@ func (c *Client) DeleteSnapshot(ctx context.Context, id string) error {
 		return fmt.Errorf("deleting snapshot: id must be in dataset@name form with non-empty dataset and name, got %q", id)
 	}
 
-	if err := c.delete(ctx, snapshotIDPath(id)); err != nil {
+	if err := c.call(ctx, "pool.snapshot.delete", []any{id}, nil); err != nil {
 		return fmt.Errorf("deleting snapshot %q: %w", id, err)
 	}
 	return nil

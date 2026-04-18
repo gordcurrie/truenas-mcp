@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 )
 
@@ -21,16 +19,11 @@ func TestListDatasets_success(t *testing.T) {
 		},
 	}
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/pool/dataset" {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(want); err != nil {
-			t.Errorf("encoding response: %v", err)
-		}
-	}))
+	srv := wsTestServer(t, map[string]methodHandler{
+		"pool.dataset.query": func(_ json.RawMessage) (any, *rpcError) {
+			return want, nil
+		},
+	})
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
@@ -49,35 +42,28 @@ func TestListDatasets_success(t *testing.T) {
 func TestListDatasets_filterByPool(t *testing.T) {
 	t.Parallel()
 
-	// Only the Storage pool dataset is returned by the simulated server,
-	// matching what TrueNAS does when a pool direct query param is sent.
 	want := []Dataset{
 		{ID: "Storage/backups", Name: "backups", Pool: "Storage", Type: "FILESYSTEM"},
 	}
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/pool/dataset" {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		// The client must pass pool as a direct query param, not as a
-		// JSON-encoded query-filters blob, which TrueNAS REST does not support.
-		pool := r.URL.Query().Get("pool")
-		if pool == "" {
-			t.Error("expected pool query param but got none")
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-		if pool != "Storage" {
-			t.Errorf("pool param = %q, want %q", pool, "Storage")
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(want); err != nil {
-			t.Errorf("encoding response: %v", err)
-		}
-	}))
+	srv := wsTestServer(t, map[string]methodHandler{
+		"pool.dataset.query": func(params json.RawMessage) (any, *rpcError) {
+			// params is [[filters], {options}] — check the filter contains pool=Storage
+			var p []json.RawMessage
+			if err := json.Unmarshal(params, &p); err != nil || len(p) < 1 {
+				return nil, &rpcError{Code: -32600, Message: "bad params"}
+			}
+			var filters [][]any
+			if err := json.Unmarshal(p[0], &filters); err != nil || len(filters) == 0 {
+				return nil, &rpcError{Code: -32600, Message: "expected filters"}
+			}
+			// filters[0] should be ["pool", "=", "Storage"]
+			if len(filters[0]) != 3 || filters[0][0] != "pool" || filters[0][2] != "Storage" {
+				return nil, &rpcError{Code: -32600, Message: "wrong filter"}
+			}
+			return want, nil
+		},
+	})
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
@@ -103,19 +89,11 @@ func TestGetDataset_success(t *testing.T) {
 		Type: "FILESYSTEM",
 	}
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// The Go HTTP server decodes the path into r.URL.Path, but r.URL.RawPath
-		// preserves the original percent-encoding. Use EscapedPath() which returns
-		// RawPath when it differs from Path, so we can verify the %2F is preserved.
-		if r.URL.EscapedPath() != "/pool/dataset/id/Storage%2Fbackups" {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(want); err != nil {
-			t.Errorf("encoding response: %v", err)
-		}
-	}))
+	srv := wsTestServer(t, map[string]methodHandler{
+		"pool.dataset.get_instance": func(_ json.RawMessage) (any, *rpcError) {
+			return want, nil
+		},
+	})
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
@@ -134,9 +112,11 @@ func TestGetDataset_success(t *testing.T) {
 func TestGetDataset_notFound(t *testing.T) {
 	t.Parallel()
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusNotFound)
-	}))
+	srv := wsTestServer(t, map[string]methodHandler{
+		"pool.dataset.get_instance": func(_ json.RawMessage) (any, *rpcError) {
+			return nil, &rpcError{Code: -32001, Message: "not found"}
+		},
+	})
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
@@ -156,17 +136,11 @@ func TestCreateDataset_success(t *testing.T) {
 		Type: "FILESYSTEM",
 	}
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost || r.URL.Path != "/pool/dataset" {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		if err := json.NewEncoder(w).Encode(created); err != nil {
-			t.Errorf("encoding response: %v", err)
-		}
-	}))
+	srv := wsTestServer(t, map[string]methodHandler{
+		"pool.dataset.create": func(_ json.RawMessage) (any, *rpcError) {
+			return created, nil
+		},
+	})
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
@@ -185,8 +159,8 @@ func TestCreateDataset_success(t *testing.T) {
 func TestCreateDataset_emptyName(t *testing.T) {
 	t.Parallel()
 
-	// No server needed — validation should fail before any HTTP call.
-	c, err := NewClient("http://localhost:19999", "test-api-key", false) //nolint:gosec // G101: test-api-key is a fake placeholder
+	// No server needed — validation fires before any network call.
+	c, err := NewClient("http://localhost:19999", "test-api-key", false) //nolint:gosec // G101: fake placeholder
 	if err != nil {
 		t.Fatalf("NewClient: %v", err)
 	}
@@ -199,8 +173,8 @@ func TestCreateDataset_emptyName(t *testing.T) {
 func TestCreateDataset_nilParams(t *testing.T) {
 	t.Parallel()
 
-	// No server needed — nil guard should fire before any HTTP call.
-	c, err := NewClient("http://localhost:19999", "test-api-key", false) //nolint:gosec // G101: test-api-key is a fake placeholder
+	// No server needed — nil guard fires before any network call.
+	c, err := NewClient("http://localhost:19999", "test-api-key", false) //nolint:gosec // G101: fake placeholder
 	if err != nil {
 		t.Fatalf("NewClient: %v", err)
 	}
@@ -213,8 +187,8 @@ func TestCreateDataset_nilParams(t *testing.T) {
 func TestCreateDataset_zvolMissingVolsize(t *testing.T) {
 	t.Parallel()
 
-	// No server needed — validation should fail before any HTTP call.
-	c, err := NewClient("http://localhost:19999", "test-api-key", false) //nolint:gosec // G101: test-api-key is a fake placeholder, not a real credential
+	// No server needed — validation fires before any network call.
+	c, err := NewClient("http://localhost:19999", "test-api-key", false) //nolint:gosec // G101: fake placeholder
 	if err != nil {
 		t.Fatalf("NewClient: %v", err)
 	}
