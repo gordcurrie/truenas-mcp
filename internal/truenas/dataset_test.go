@@ -7,6 +7,33 @@ import (
 	"testing"
 )
 
+func TestDatasetValue_MarshalJSON(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		input DatasetValue
+		want  string
+	}{
+		{"non-empty value", DatasetValue{Value: "11.59 TiB", RawValue: "12742033547264"}, `"11.59 TiB"`},
+		{"compression string", DatasetValue{Value: "lz4", RawValue: "lz4"}, `"lz4"`},
+		{"empty value emits null", DatasetValue{Value: "", RawValue: "0"}, "null"},
+		{"zero value emits null", DatasetValue{}, "null"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			got, err := json.Marshal(tc.input)
+			if err != nil {
+				t.Fatalf("Marshal: %v", err)
+			}
+			if string(got) != tc.want {
+				t.Errorf("got %s, want %s", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestListDatasets_success(t *testing.T) {
 	t.Parallel()
 

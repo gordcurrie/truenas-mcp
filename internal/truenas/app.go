@@ -38,7 +38,7 @@ type App struct {
 // Image represents a Docker image stored on TrueNAS SCALE.
 type Image struct {
 	ID       string   `json:"id"`
-	RepoTags []string `json:"repo_tags"`
+	RepoTags []string `json:"repo_tags,omitempty"`
 	Size     int64    `json:"size"`
 }
 
@@ -59,12 +59,12 @@ type AppVersionInfo struct {
 // UpgradeAvailable is false when the app is already on the latest version.
 type AppUpgradeSummary struct {
 	UpgradeAvailable            bool             `json:"upgrade_available"`
-	LatestVersion               string           `json:"latest_version"`
-	LatestHumanVersion          string           `json:"latest_human_version"`
-	UpgradeVersion              string           `json:"upgrade_version"`
-	UpgradeHumanVersion         string           `json:"upgrade_human_version"`
-	AvailableVersionsForUpgrade []AppVersionInfo `json:"available_versions_for_upgrade"`
-	Changelog                   *string          `json:"changelog"`
+	LatestVersion               string           `json:"latest_version,omitempty"`
+	LatestHumanVersion          string           `json:"latest_human_version,omitempty"`
+	UpgradeVersion              string           `json:"upgrade_version,omitempty"`
+	UpgradeHumanVersion         string           `json:"upgrade_human_version,omitempty"`
+	AvailableVersionsForUpgrade []AppVersionInfo `json:"available_versions_for_upgrade,omitempty"`
+	Changelog                   *string          `json:"changelog,omitempty"`
 }
 
 // ListApps returns all installed apps on the TrueNAS SCALE system.

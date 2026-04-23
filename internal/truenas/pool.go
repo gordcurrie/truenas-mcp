@@ -23,7 +23,7 @@ type Pool struct {
 	Healthy       bool     `json:"healthy"`
 	Warning       bool     `json:"warning"`
 	StatusCode    string   `json:"status_code"`
-	StatusDetail  *string  `json:"status_detail"`
+	StatusDetail  *string  `json:"status_detail,omitempty"`
 	Size          int64    `json:"size"`
 	Allocated     int64    `json:"allocated"`
 	Free          int64    `json:"free"`

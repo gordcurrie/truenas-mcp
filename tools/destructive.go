@@ -5,14 +5,13 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/modelcontextprotocol/go-sdk/mcp"
-
 	"github.com/gordcurrie/truenas-mcp/internal/truenas"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // registerDestructiveTools adds opt-in destructive tools to the server.
 // These tools are only registered when TRUENAS_ALLOW_DESTRUCTIVE=true.
-func registerDestructiveTools(s *mcp.Server, client *truenas.Client) {
+func registerDestructiveTools(s *mcp.Server, client truenasClient) {
 	destructiveHint := true
 	type deleteVMInput struct {
 		ID        int  `json:"id"        jsonschema:"Numeric VM ID"`
@@ -28,13 +27,13 @@ func registerDestructiveTools(s *mcp.Server, client *truenas.Client) {
 		},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p deleteVMInput) (*mcp.CallToolResult, any, error) {
 		if !p.Confirmed {
-			return nil, nil, errors.New("delete_vm: confirmed must be true to proceed with deletion")
+			return errorResult(errors.New("delete_vm: confirmed must be true to proceed with deletion"))
 		}
 		if p.ID <= 0 {
-			return nil, nil, errors.New("delete_vm: id must be a positive integer")
+			return errorResult(errors.New("delete_vm: id must be a positive integer"))
 		}
 		if err := client.DeleteVM(ctx, p.ID); err != nil {
-			return nil, nil, fmt.Errorf("delete_vm: %w", err)
+			return errorResult(fmt.Errorf("delete_vm: %w", err))
 		}
 		return jsonResult(map[string]any{"deleted": true, "id": p.ID})
 	})
@@ -53,13 +52,13 @@ func registerDestructiveTools(s *mcp.Server, client *truenas.Client) {
 		},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p deleteAppInput) (*mcp.CallToolResult, any, error) {
 		if !p.Confirmed {
-			return nil, nil, errors.New("delete_app: confirmed must be true to proceed with deletion")
+			return errorResult(errors.New("delete_app: confirmed must be true to proceed with deletion"))
 		}
 		if p.Name == "" {
-			return nil, nil, errors.New("delete_app: name must not be empty")
+			return errorResult(errors.New("delete_app: name must not be empty"))
 		}
 		if err := client.DeleteApp(ctx, p.Name); err != nil {
-			return nil, nil, fmt.Errorf("delete_app: %w", err)
+			return errorResult(fmt.Errorf("delete_app: %w", err))
 		}
 		return jsonResult(map[string]any{"deleted": true, "name": p.Name})
 	})
@@ -78,13 +77,13 @@ func registerDestructiveTools(s *mcp.Server, client *truenas.Client) {
 		},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p deleteSnapshotInput) (*mcp.CallToolResult, any, error) {
 		if !p.Confirmed {
-			return nil, nil, errors.New("delete_snapshot: confirmed must be true to proceed with deletion")
+			return errorResult(errors.New("delete_snapshot: confirmed must be true to proceed with deletion"))
 		}
 		if p.ID == "" {
-			return nil, nil, errors.New("delete_snapshot: id must not be empty")
+			return errorResult(errors.New("delete_snapshot: id must not be empty"))
 		}
 		if err := client.DeleteSnapshot(ctx, p.ID); err != nil {
-			return nil, nil, fmt.Errorf("delete_snapshot: %w", err)
+			return errorResult(fmt.Errorf("delete_snapshot: %w", err))
 		}
 		return jsonResult(map[string]any{"deleted": true, "id": p.ID})
 	})
@@ -103,13 +102,13 @@ func registerDestructiveTools(s *mcp.Server, client *truenas.Client) {
 		},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p deleteVMDeviceInput) (*mcp.CallToolResult, any, error) {
 		if !p.Confirmed {
-			return nil, nil, errors.New("delete_vm_device: confirmed must be true to proceed with removal")
+			return errorResult(errors.New("delete_vm_device: confirmed must be true to proceed with removal"))
 		}
 		if p.ID <= 0 {
-			return nil, nil, errors.New("delete_vm_device: id must be a positive integer")
+			return errorResult(errors.New("delete_vm_device: id must be a positive integer"))
 		}
 		if err := client.DeleteVMDevice(ctx, p.ID); err != nil {
-			return nil, nil, fmt.Errorf("delete_vm_device: %w", err)
+			return errorResult(fmt.Errorf("delete_vm_device: %w", err))
 		}
 		return jsonResult(map[string]any{"deleted": true, "device_id": p.ID})
 	})
@@ -136,13 +135,13 @@ func registerDestructiveTools(s *mcp.Server, client *truenas.Client) {
 		},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p rollbackSnapshotInput) (*mcp.CallToolResult, any, error) {
 		if !p.Confirmed {
-			return nil, nil, errors.New("rollback_snapshot: confirmed must be true to proceed with rollback")
+			return errorResult(errors.New("rollback_snapshot: confirmed must be true to proceed with rollback"))
 		}
 		if p.ID == "" {
-			return nil, nil, errors.New("rollback_snapshot: id must not be empty")
+			return errorResult(errors.New("rollback_snapshot: id must not be empty"))
 		}
 		if p.RecursiveClones && !p.Recursive {
-			return nil, nil, errors.New("rollback_snapshot: recursive_clones requires recursive=true")
+			return errorResult(errors.New("rollback_snapshot: recursive_clones requires recursive=true"))
 		}
 		err := client.RollbackSnapshot(ctx, p.ID, truenas.RollbackSnapshotParams{
 			Recursive:       p.Recursive,
@@ -150,7 +149,7 @@ func registerDestructiveTools(s *mcp.Server, client *truenas.Client) {
 			Force:           p.Force,
 		})
 		if err != nil {
-			return nil, nil, fmt.Errorf("rollback_snapshot: %w", err)
+			return errorResult(fmt.Errorf("rollback_snapshot: %w", err))
 		}
 		return jsonResult(map[string]any{"rolled_back": true, "id": p.ID})
 	})

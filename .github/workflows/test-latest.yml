@@ -1,0 +1,24 @@
+name: Test with latest dependencies
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+jobs:
+  test-latest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Upgrade all dependencies to latest
+        run: go get -u -t ./...
+      - name: Tidy
+        run: go mod tidy
+      - name: Test
+        run: go test -race -count=1 ./...

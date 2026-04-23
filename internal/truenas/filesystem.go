@@ -10,7 +10,7 @@ import (
 type DirEntry struct {
 	Name     string `json:"name"`
 	Path     string `json:"path"`
-	RealPath string `json:"realpath"`
+	RealPath string `json:"realpath,omitempty"`
 	// Type is "FILE" or "DIRECTORY".
 	Type string `json:"type"`
 	Size int64  `json:"size"`

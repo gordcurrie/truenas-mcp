@@ -17,7 +17,8 @@ import (
 
 const (
 	wsHandshakeTimeout = 10 * time.Second
-	defaultCallTimeout = 30 * time.Second // applied when ctx has no deadline
+	defaultCallTimeout = 30 * time.Second  // applied when ctx has no deadline
+	maxMessageBytes    = 10 * 1024 * 1024  // 10 MiB cap on inbound WebSocket messages
 )
 
 // rpcRequest is a JSON-RPC 2.0 request frame sent to TrueNAS.
@@ -146,6 +147,7 @@ func (c *Client) Connect(ctx context.Context) error {
 		_ = conn.Close()
 		return fmt.Errorf("Connect called on an already-connected client")
 	}
+	conn.SetReadLimit(maxMessageBytes)
 	c.conn = conn
 	c.mu.Unlock()
 

@@ -2,6 +2,7 @@ package truenas
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 )
 
@@ -15,20 +16,35 @@ type DatasetValue struct {
 	Parsed   any    `json:"parsed"`
 }
 
+// MarshalJSON emits just the human-readable Value string (e.g. "11.61 TiB",
+// "lz4") instead of the full {value, rawvalue, parsed} object. When Value is
+// empty (field not set, e.g. quota with no quota) null is emitted. This cuts
+// token cost roughly 5× compared to the full wrapper object.
+func (v DatasetValue) MarshalJSON() ([]byte, error) {
+	if v.Value == "" {
+		return []byte("null"), nil
+	}
+	return json.Marshal(v.Value)
+}
+
 // Dataset represents a ZFS dataset or zvol on TrueNAS SCALE.
 type Dataset struct {
 	ID          string       `json:"id"`
 	Name        string       `json:"name"`
 	Pool        string       `json:"pool"`
 	Type        string       `json:"type"` // FILESYSTEM or VOLUME
-	MountPoint  *string      `json:"mountpoint"`
+	MountPoint  *string      `json:"mountpoint,omitempty"`
 	Encrypted   bool         `json:"encrypted"`
 	Available   DatasetValue `json:"available"`
 	Used        DatasetValue `json:"used"`
-	Quota       DatasetValue `json:"quota"`
+	// Quota and Comments use omitempty, but because DatasetValue is a struct
+	// omitempty only fires for the exact zero value. In practice TrueNAS returns
+	// a non-zero DatasetValue even for unset quotas ({value:"",rawvalue:"0",...}),
+	// so these fields appear as null (from MarshalJSON) rather than being omitted.
+	Quota       DatasetValue `json:"quota,omitempty"`
 	Compression DatasetValue `json:"compression"`
-	Comments    DatasetValue `json:"comments"`
-	Children    []Dataset    `json:"children"`
+	Comments    DatasetValue `json:"comments,omitempty"`
+	Children    []Dataset    `json:"children,omitempty"`
 }
 
 // CreateDatasetParams holds the fields required and optional for creating a

@@ -2,7 +2,6 @@
 package tools
 
 import (
-	"github.com/gordcurrie/truenas-mcp/internal/truenas"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -13,7 +12,7 @@ type Config struct {
 }
 
 // RegisterAll wires all TrueNAS MCP tools onto the provided server.
-func RegisterAll(s *mcp.Server, client *truenas.Client, cfg Config) {
+func RegisterAll(s *mcp.Server, client truenasClient, cfg Config) {
 	registerSystemTools(s, client)
 	registerNetworkTools(s, client)
 	registerFilesystemTools(s, client)

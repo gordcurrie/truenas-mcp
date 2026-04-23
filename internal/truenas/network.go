@@ -19,8 +19,8 @@ type Interface struct {
 	Name string `json:"name"`
 	// Type is the interface kind: PHYSICAL, BRIDGE, BOND, VLAN, etc.
 	Type        string           `json:"type"`
-	Description string           `json:"description"`
-	Aliases     []InterfaceAlias `json:"aliases"`
+	Description string           `json:"description,omitempty"`
+	Aliases     []InterfaceAlias `json:"aliases,omitempty"`
 }
 
 // ListInterfaces returns all network interfaces configured on the TrueNAS host.

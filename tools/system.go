@@ -4,12 +4,11 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/gordcurrie/truenas-mcp/internal/truenas"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // registerSystemTools adds system info MCP tools to the server.
-func registerSystemTools(s *mcp.Server, client *truenas.Client) {
+func registerSystemTools(s *mcp.Server, client truenasClient) {
 	type getSystemInfoInput struct{}
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "get_system_info",
@@ -18,7 +17,7 @@ func registerSystemTools(s *mcp.Server, client *truenas.Client) {
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ getSystemInfoInput) (*mcp.CallToolResult, any, error) {
 		info, err := client.GetSystemInfo(ctx)
 		if err != nil {
-			return nil, nil, fmt.Errorf("get_system_info: %w", err)
+			return errorResult(fmt.Errorf("get_system_info: %w", err))
 		}
 		return jsonResult(info)
 	})

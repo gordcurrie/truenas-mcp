@@ -10,7 +10,7 @@ import (
 )
 
 // registerAppTools adds TrueNAS app and Docker image MCP tools to the server.
-func registerAppTools(s *mcp.Server, client *truenas.Client) {
+func registerAppTools(s *mcp.Server, client truenasClient) {
 	type listAppsInput struct {
 		Limit  int `json:"limit,omitempty"  jsonschema:"Maximum number of apps to return; 0 means no limit"`
 		Offset int `json:"offset,omitempty" jsonschema:"Number of apps to skip; 0 means start from the beginning"`
@@ -22,7 +22,7 @@ func registerAppTools(s *mcp.Server, client *truenas.Client) {
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p listAppsInput) (*mcp.CallToolResult, any, error) {
 		apps, err := client.ListApps(ctx, truenas.ListOptions{Limit: p.Limit, Offset: p.Offset})
 		if err != nil {
-			return nil, nil, fmt.Errorf("list_apps: %w", err)
+			return errorResult(fmt.Errorf("list_apps: %w", err))
 		}
 		return jsonResult(apps)
 	})
@@ -36,14 +36,14 @@ func registerAppTools(s *mcp.Server, client *truenas.Client) {
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p getAppInput) (*mcp.CallToolResult, any, error) {
 		if p.Name == "" {
-			return nil, nil, errors.New("get_app: name must not be empty")
+			return errorResult(errors.New("get_app: name must not be empty"))
 		}
 		app, err := client.GetApp(ctx, p.Name)
 		if err != nil {
 			if errors.Is(err, truenas.ErrNotFound) {
-				return nil, nil, fmt.Errorf("get_app: app %q not found", p.Name)
+				return errorResult(fmt.Errorf("get_app: app %q not found", p.Name))
 			}
-			return nil, nil, fmt.Errorf("get_app: %w", err)
+			return errorResult(fmt.Errorf("get_app: %w", err))
 		}
 		return jsonResult(app)
 	})
@@ -57,11 +57,11 @@ func registerAppTools(s *mcp.Server, client *truenas.Client) {
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p startAppInput) (*mcp.CallToolResult, any, error) {
 		if p.Name == "" {
-			return nil, nil, errors.New("start_app: name must not be empty")
+			return errorResult(errors.New("start_app: name must not be empty"))
 		}
 		jobID, err := client.StartApp(ctx, p.Name)
 		if err != nil {
-			return nil, nil, fmt.Errorf("start_app: %w", err)
+			return errorResult(fmt.Errorf("start_app: %w", err))
 		}
 		return jsonResult(map[string]int{"job_id": jobID})
 	})
@@ -75,11 +75,11 @@ func registerAppTools(s *mcp.Server, client *truenas.Client) {
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p stopAppInput) (*mcp.CallToolResult, any, error) {
 		if p.Name == "" {
-			return nil, nil, errors.New("stop_app: name must not be empty")
+			return errorResult(errors.New("stop_app: name must not be empty"))
 		}
 		jobID, err := client.StopApp(ctx, p.Name)
 		if err != nil {
-			return nil, nil, fmt.Errorf("stop_app: %w", err)
+			return errorResult(fmt.Errorf("stop_app: %w", err))
 		}
 		return jsonResult(map[string]int{"job_id": jobID})
 	})
@@ -93,11 +93,11 @@ func registerAppTools(s *mcp.Server, client *truenas.Client) {
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p restartAppInput) (*mcp.CallToolResult, any, error) {
 		if p.Name == "" {
-			return nil, nil, errors.New("restart_app: name must not be empty")
+			return errorResult(errors.New("restart_app: name must not be empty"))
 		}
 		jobID, err := client.RestartApp(ctx, p.Name)
 		if err != nil {
-			return nil, nil, fmt.Errorf("restart_app: %w", err)
+			return errorResult(fmt.Errorf("restart_app: %w", err))
 		}
 		return jsonResult(map[string]int{"job_id": jobID})
 	})
@@ -110,7 +110,7 @@ func registerAppTools(s *mcp.Server, client *truenas.Client) {
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ listImagesInput) (*mcp.CallToolResult, any, error) {
 		images, err := client.ListImages(ctx)
 		if err != nil {
-			return nil, nil, fmt.Errorf("list_images: %w", err)
+			return errorResult(fmt.Errorf("list_images: %w", err))
 		}
 		return jsonResult(images)
 	})
@@ -127,10 +127,10 @@ func registerAppTools(s *mcp.Server, client *truenas.Client) {
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p installAppInput) (*mcp.CallToolResult, any, error) {
 		if p.AppName == "" {
-			return nil, nil, errors.New("install_app: app_name must not be empty")
+			return errorResult(errors.New("install_app: app_name must not be empty"))
 		}
 		if p.CatalogApp == "" {
-			return nil, nil, errors.New("install_app: catalog_app must not be empty")
+			return errorResult(errors.New("install_app: catalog_app must not be empty"))
 		}
 		train := p.Train
 		if train == "" {
@@ -147,7 +147,7 @@ func registerAppTools(s *mcp.Server, client *truenas.Client) {
 			Version:    version,
 		})
 		if err != nil {
-			return nil, nil, fmt.Errorf("install_app: %w", err)
+			return errorResult(fmt.Errorf("install_app: %w", err))
 		}
 		return jsonResult(map[string]int{"job_id": jobID})
 	})
@@ -162,10 +162,10 @@ func registerAppTools(s *mcp.Server, client *truenas.Client) {
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p installCustomAppInput) (*mcp.CallToolResult, any, error) {
 		if p.AppName == "" {
-			return nil, nil, errors.New("install_custom_app: app_name must not be empty")
+			return errorResult(errors.New("install_custom_app: app_name must not be empty"))
 		}
 		if p.CustomComposeConfigString == "" {
-			return nil, nil, errors.New("install_custom_app: custom_compose_config_string must not be empty")
+			return errorResult(errors.New("install_custom_app: custom_compose_config_string must not be empty"))
 		}
 		jobID, err := client.CreateApp(ctx, &truenas.CreateAppParams{
 			AppName:                   p.AppName,
@@ -173,7 +173,7 @@ func registerAppTools(s *mcp.Server, client *truenas.Client) {
 			CustomComposeConfigString: p.CustomComposeConfigString,
 		})
 		if err != nil {
-			return nil, nil, fmt.Errorf("install_custom_app: %w", err)
+			return errorResult(fmt.Errorf("install_custom_app: %w", err))
 		}
 		return jsonResult(map[string]int{"job_id": jobID})
 	})
@@ -188,11 +188,11 @@ func registerAppTools(s *mcp.Server, client *truenas.Client) {
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p upgradeAppInput) (*mcp.CallToolResult, any, error) {
 		if p.Name == "" {
-			return nil, nil, errors.New("upgrade_app: name must not be empty")
+			return errorResult(errors.New("upgrade_app: name must not be empty"))
 		}
 		jobID, err := client.UpgradeApp(ctx, p.Name, p.Version)
 		if err != nil {
-			return nil, nil, fmt.Errorf("upgrade_app: %w", err)
+			return errorResult(fmt.Errorf("upgrade_app: %w", err))
 		}
 		return jsonResult(map[string]int{"job_id": jobID})
 	})
@@ -206,11 +206,11 @@ func registerAppTools(s *mcp.Server, client *truenas.Client) {
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p upgradeSummaryInput) (*mcp.CallToolResult, any, error) {
 		if p.Name == "" {
-			return nil, nil, errors.New("upgrade_summary: name must not be empty")
+			return errorResult(errors.New("upgrade_summary: name must not be empty"))
 		}
 		summary, err := client.GetUpgradeSummary(ctx, p.Name)
 		if err != nil {
-			return nil, nil, fmt.Errorf("upgrade_summary: %w", err)
+			return errorResult(fmt.Errorf("upgrade_summary: %w", err))
 		}
 		return jsonResult(summary)
 	})
@@ -225,14 +225,14 @@ func registerAppTools(s *mcp.Server, client *truenas.Client) {
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p rollbackAppInput) (*mcp.CallToolResult, any, error) {
 		if p.Name == "" {
-			return nil, nil, errors.New("rollback_app: name must not be empty")
+			return errorResult(errors.New("rollback_app: name must not be empty"))
 		}
 		if p.Version == "" {
-			return nil, nil, errors.New("rollback_app: version must not be empty")
+			return errorResult(errors.New("rollback_app: version must not be empty"))
 		}
 		jobID, err := client.RollbackApp(ctx, p.Name, p.Version)
 		if err != nil {
-			return nil, nil, fmt.Errorf("rollback_app: %w", err)
+			return errorResult(fmt.Errorf("rollback_app: %w", err))
 		}
 		return jsonResult(map[string]int{"job_id": jobID})
 	})

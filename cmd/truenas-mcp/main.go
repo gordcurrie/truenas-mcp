@@ -19,6 +19,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"log/slog"
@@ -102,12 +103,17 @@ func run() error {
 			return server
 		}, nil)
 		httpServer := &http.Server{
-			Addr:              *addr,
-			Handler:           handler,
+			Addr:    *addr,
+			Handler: http.MaxBytesHandler(handler, 4<<20),
+			// ReadTimeout must leave room for slow clients sending large bodies.
+			ReadTimeout: 60 * time.Second,
+			// ReadHeaderTimeout is a tighter guard against Slowloris attacks.
 			ReadHeaderTimeout: 30 * time.Second,
 			// WriteTimeout must exceed the TrueNAS API client timeout (30s) plus
 			// any job-polling time so that in-flight responses are never cut short.
 			WriteTimeout: 90 * time.Second,
+			IdleTimeout:  120 * time.Second,
+			MaxHeaderBytes: 1 << 20,
 		}
 		slog.Info("truenas-mcp listening", "addr", *addr, "transport", "http")
 		go func() {
@@ -118,7 +124,7 @@ func run() error {
 				slog.Warn("HTTP server shutdown error", "err", shutdownErr)
 			}
 		}()
-		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			return fmt.Errorf("http server: %w", err)
 		}
 	default:

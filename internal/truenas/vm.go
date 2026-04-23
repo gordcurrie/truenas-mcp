@@ -12,16 +12,16 @@ var vmNameRe = regexp.MustCompile(`^[a-zA-Z0-9]+$`)
 
 // VMStatus holds the runtime state of a VM as reported by TrueNAS SCALE.
 type VMStatus struct {
-	State       string `json:"state"`        // RUNNING, STOPPED
-	PID         *int   `json:"pid"`          // nil when not running
-	DomainState string `json:"domain_state"` // libvirt domain state string
+	State       string `json:"state"`                  // RUNNING, STOPPED
+	PID         *int   `json:"pid,omitempty"`          // nil when not running
+	DomainState string `json:"domain_state,omitempty"` // libvirt domain state string
 }
 
 // VM represents a virtual machine configured on TrueNAS SCALE.
 type VM struct {
 	ID              int      `json:"id"`
 	Name            string   `json:"name"`
-	Description     string   `json:"description"`
+	Description     string   `json:"description,omitempty"`
 	VCPUs           int      `json:"vcpus"`
 	Memory          int      `json:"memory"` // MiB
 	Autostart       bool     `json:"autostart"`
@@ -29,9 +29,9 @@ type VM struct {
 	Cores           int      `json:"cores"`
 	Threads         int      `json:"threads"`
 	ShutdownTimeout int      `json:"shutdown_timeout"`
-	CPUMode         string   `json:"cpu_mode"`
-	CPUModel        string   `json:"cpu_model"`
-	UUID            string   `json:"uuid"`
+	CPUMode         string   `json:"cpu_mode,omitempty"`
+	CPUModel        string   `json:"cpu_model,omitempty"`
+	UUID            string   `json:"uuid,omitempty"`
 	Status          VMStatus `json:"status"`
 }
 
