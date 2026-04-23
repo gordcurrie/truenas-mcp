@@ -166,8 +166,6 @@ any changes to the `tools/` layer.
 
 ---
 
----
-
 ## PR 2 — Quality parity with proxmox-mcp
 
 **Goal**: Bring truenas-mcp up to the same quality standard as proxmox-mcp after its

@@ -12,7 +12,7 @@ import (
 func jsonResult(v any) (*mcp.CallToolResult, any, error) {
 	data, err := json.Marshal(v)
 	if err != nil {
-		return nil, nil, fmt.Errorf("marshalling result: %w", err)
+		return errorResult(fmt.Errorf("marshalling result: %w", err))
 	}
 	return &mcp.CallToolResult{
 		Content: []mcp.Content{

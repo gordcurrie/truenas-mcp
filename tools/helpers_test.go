@@ -52,10 +52,14 @@ func TestJsonResult_marshalError(t *testing.T) {
 	t.Parallel()
 
 	// Channels cannot be marshalled to JSON — exercises the error path.
+	// The marshal error is returned as an isError result, not a protocol error.
 	ch := make(chan int)
-	_, _, err := jsonResult(ch)
-	if err == nil {
-		t.Fatal("expected marshal error for channel type, got nil")
+	result, _, err := jsonResult(ch)
+	if err != nil {
+		t.Fatalf("expected no protocol error, got: %v", err)
+	}
+	if result == nil || !result.IsError {
+		t.Fatal("expected isError=true result for unmarshalable type")
 	}
 }
 
