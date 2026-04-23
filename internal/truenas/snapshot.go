@@ -14,11 +14,11 @@ type Snapshot struct {
 	Dataset    string   `json:"dataset"`
 	Name       string   `json:"snapshot_name"`
 	Pool       string   `json:"pool"`
-	Referenced string   `json:"referenced"`
-	Used       string   `json:"used"`
-	CreateTXG  string   `json:"createtxg"`
-	GUID       string   `json:"guid"`
-	Clones     []string `json:"clones"`
+	Referenced string   `json:"referenced,omitempty"`
+	Used       string   `json:"used,omitempty"`
+	CreateTXG  string   `json:"createtxg,omitempty"`
+	GUID       string   `json:"guid,omitempty"`
+	Clones     []string `json:"clones,omitempty"`
 }
 
 // CreateSnapshotParams holds the fields for creating a ZFS snapshot.
