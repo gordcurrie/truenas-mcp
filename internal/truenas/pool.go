@@ -27,7 +27,7 @@ type Pool struct {
 	Size          int64    `json:"size"`
 	Allocated     int64    `json:"allocated"`
 	Free          int64    `json:"free"`
-	Freeing       int64    `json:"freeing,omitempty"`
+	Freeing       int64    `json:"freeing"`
 	Fragmentation string   `json:"fragmentation"`
 	Scan          PoolScan `json:"scan"`
 }
