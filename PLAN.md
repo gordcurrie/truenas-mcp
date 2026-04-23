@@ -166,6 +166,57 @@ any changes to the `tools/` layer.
 
 ---
 
+---
+
+## PR 2 — Quality parity with proxmox-mcp
+
+**Goal**: Bring truenas-mcp up to the same quality standard as proxmox-mcp after its
+hardening pass.
+
+**Tasks**:
+
+- ✅ **`tools/client_iface.go`** — Extract `truenasClient` interface (35 methods) over
+  `*truenas.Client`; allows mock-based testing without a live TrueNAS server. All
+  `register*Tools` functions and `RegisterAll` now accept `truenasClient` instead of
+  `*truenas.Client`.
+
+- ✅ **`tools/helpers.go`** — Add `errorResult(err error)` helper (same pattern as
+  proxmox-mcp). All tool handlers now use `return errorResult(...)` instead of
+  `return nil, nil, err`, so tool execution errors flow as `isError: true` per MCP spec §6.
+
+- ✅ **`tools/mock_client_test.go`** — `mockTruenasClient` struct with one `*Fn`
+  callback field per interface method; nil fields return zero values.
+
+- ✅ **`tools/tooltest_test.go`** — `connectTestServer`, `callTool`, `assertSuccess`,
+  `assertError`, `assertResultJSON` — identical pattern to proxmox-mcp.
+
+- ✅ **`tools/*_test.go`** (9 files) — Round-trip tool tests for all 9 tool domains
+  (system, pool, dataset, snapshot, vm, app, network, filesystem, destructive).
+  132 tests total; covers happy path, error path, and input validation per tool.
+
+- ✅ **`internal/truenas/client.go`** — Add `maxMessageBytes = 10 MiB` constant and
+  call `conn.SetReadLimit(maxMessageBytes)` immediately after the WebSocket connection
+  is established. This caps inbound WebSocket message size, preventing memory exhaustion
+  from abnormally large server responses.
+
+- ✅ **`cmd/truenas-mcp/main.go`** — HTTP server hardening:
+  - `ReadTimeout: 60s` (was missing)
+  - `IdleTimeout: 120s` (was missing)
+  - `MaxHeaderBytes: 1 MiB` (was missing)
+  - `http.MaxBytesHandler(handler, 4 MiB)` wrapper (was missing)
+  - `!errors.Is(err, http.ErrServerClosed)` instead of `!= http.ErrServerClosed`
+
+- ✅ **`Makefile`** — Pin all dev tool versions to explicit semver tags instead of
+  `@latest` to prevent surprise CI breakage on new tool releases.
+
+- ✅ **`.github/workflows/test-latest.yml`** — Daily workflow: upgrade all deps to
+  latest, run tests. Catches breakage before users do.
+
+- ✅ **`.github/workflows/govulncheck.yml`** — Daily vulnerability check via
+  `govulncheck`. Separate job so vuln alerts don't block regular CI.
+
+---
+
 ## Security Rules
 
 - No credentials in source — env vars only

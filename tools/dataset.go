@@ -5,13 +5,12 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/modelcontextprotocol/go-sdk/mcp"
-
 	"github.com/gordcurrie/truenas-mcp/internal/truenas"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // registerDatasetTools registers all dataset-related MCP tools onto the server.
-func registerDatasetTools(s *mcp.Server, client *truenas.Client) {
+func registerDatasetTools(s *mcp.Server, client truenasClient) {
 	type listDatasetsInput struct {
 		// Pool filters the results to datasets belonging to this pool name.
 		// Leave empty to return datasets from all pools.
@@ -27,7 +26,7 @@ func registerDatasetTools(s *mcp.Server, client *truenas.Client) {
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p listDatasetsInput) (*mcp.CallToolResult, any, error) {
 		datasets, err := client.ListDatasets(ctx, p.Pool, truenas.ListOptions{Limit: p.Limit, Offset: p.Offset})
 		if err != nil {
-			return nil, nil, fmt.Errorf("list_datasets: %w", err)
+			return errorResult(fmt.Errorf("list_datasets: %w", err))
 		}
 		return jsonResult(datasets)
 	})
@@ -43,14 +42,14 @@ func registerDatasetTools(s *mcp.Server, client *truenas.Client) {
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p getDatasetInput) (*mcp.CallToolResult, any, error) {
 		if p.ID == "" {
-			return nil, nil, errors.New("get_dataset: id must not be empty")
+			return errorResult(errors.New("get_dataset: id must not be empty"))
 		}
 		dataset, err := client.GetDataset(ctx, p.ID)
 		if err != nil {
 			if errors.Is(err, truenas.ErrNotFound) {
-				return nil, nil, fmt.Errorf("get_dataset: dataset %q not found", p.ID)
+				return errorResult(fmt.Errorf("get_dataset: dataset %q not found", p.ID))
 			}
-			return nil, nil, fmt.Errorf("get_dataset: %w", err)
+			return errorResult(fmt.Errorf("get_dataset: %w", err))
 		}
 		return jsonResult(dataset)
 	})
@@ -76,7 +75,7 @@ func registerDatasetTools(s *mcp.Server, client *truenas.Client) {
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p createDatasetInput) (*mcp.CallToolResult, any, error) {
 		if p.Name == "" {
-			return nil, nil, errors.New("create_dataset: name must not be empty")
+			return errorResult(errors.New("create_dataset: name must not be empty"))
 		}
 		dataset, err := client.CreateDataset(ctx, &truenas.CreateDatasetParams{
 			Name:        p.Name,
@@ -87,7 +86,7 @@ func registerDatasetTools(s *mcp.Server, client *truenas.Client) {
 			Volsize:     p.Volsize,
 		})
 		if err != nil {
-			return nil, nil, fmt.Errorf("create_dataset: %w", err)
+			return errorResult(fmt.Errorf("create_dataset: %w", err))
 		}
 		return jsonResult(dataset)
 	})

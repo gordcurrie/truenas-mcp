@@ -5,13 +5,12 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/modelcontextprotocol/go-sdk/mcp"
-
 	"github.com/gordcurrie/truenas-mcp/internal/truenas"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // registerVMTools registers all VM-related MCP tools onto the server.
-func registerVMTools(s *mcp.Server, client *truenas.Client) {
+func registerVMTools(s *mcp.Server, client truenasClient) {
 	type listVMsInput struct {
 		Limit  int `json:"limit,omitempty"  jsonschema:"Maximum number of VMs to return; 0 means no limit"`
 		Offset int `json:"offset,omitempty" jsonschema:"Number of VMs to skip; 0 means start from the beginning"`
@@ -24,7 +23,7 @@ func registerVMTools(s *mcp.Server, client *truenas.Client) {
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p listVMsInput) (*mcp.CallToolResult, any, error) {
 		vms, err := client.ListVMs(ctx, truenas.ListOptions{Limit: p.Limit, Offset: p.Offset})
 		if err != nil {
-			return nil, nil, fmt.Errorf("list_vms: %w", err)
+			return errorResult(fmt.Errorf("list_vms: %w", err))
 		}
 		return jsonResult(vms)
 	})
@@ -39,14 +38,14 @@ func registerVMTools(s *mcp.Server, client *truenas.Client) {
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p getVMInput) (*mcp.CallToolResult, any, error) {
 		if p.ID <= 0 {
-			return nil, nil, errors.New("get_vm: id must be a positive integer")
+			return errorResult(errors.New("get_vm: id must be a positive integer"))
 		}
 		vm, err := client.GetVM(ctx, p.ID)
 		if err != nil {
 			if errors.Is(err, truenas.ErrNotFound) {
-				return nil, nil, fmt.Errorf("get_vm: VM %d not found", p.ID)
+				return errorResult(fmt.Errorf("get_vm: VM %d not found", p.ID))
 			}
-			return nil, nil, fmt.Errorf("get_vm: %w", err)
+			return errorResult(fmt.Errorf("get_vm: %w", err))
 		}
 		return jsonResult(vm)
 	})
@@ -61,11 +60,11 @@ func registerVMTools(s *mcp.Server, client *truenas.Client) {
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p startVMInput) (*mcp.CallToolResult, any, error) {
 		if p.ID <= 0 {
-			return nil, nil, errors.New("start_vm: id must be a positive integer")
+			return errorResult(errors.New("start_vm: id must be a positive integer"))
 		}
 		jobID, err := client.StartVM(ctx, p.ID)
 		if err != nil {
-			return nil, nil, fmt.Errorf("start_vm: %w", err)
+			return errorResult(fmt.Errorf("start_vm: %w", err))
 		}
 		return jsonResult(map[string]int{"job_id": jobID})
 	})
@@ -81,11 +80,11 @@ func registerVMTools(s *mcp.Server, client *truenas.Client) {
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p stopVMInput) (*mcp.CallToolResult, any, error) {
 		if p.ID <= 0 {
-			return nil, nil, errors.New("stop_vm: id must be a positive integer")
+			return errorResult(errors.New("stop_vm: id must be a positive integer"))
 		}
 		jobID, err := client.StopVM(ctx, p.ID, p.Force)
 		if err != nil {
-			return nil, nil, fmt.Errorf("stop_vm: %w", err)
+			return errorResult(fmt.Errorf("stop_vm: %w", err))
 		}
 		return jsonResult(map[string]int{"job_id": jobID})
 	})
@@ -100,11 +99,11 @@ func registerVMTools(s *mcp.Server, client *truenas.Client) {
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p restartVMInput) (*mcp.CallToolResult, any, error) {
 		if p.ID <= 0 {
-			return nil, nil, errors.New("restart_vm: id must be a positive integer")
+			return errorResult(errors.New("restart_vm: id must be a positive integer"))
 		}
 		jobID, err := client.RestartVM(ctx, p.ID)
 		if err != nil {
-			return nil, nil, fmt.Errorf("restart_vm: %w", err)
+			return errorResult(fmt.Errorf("restart_vm: %w", err))
 		}
 		return jsonResult(map[string]int{"job_id": jobID})
 	})
@@ -129,10 +128,10 @@ func registerVMTools(s *mcp.Server, client *truenas.Client) {
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p createVMInput) (*mcp.CallToolResult, any, error) {
 		if p.Name == "" {
-			return nil, nil, errors.New("create_vm: name must not be empty")
+			return errorResult(errors.New("create_vm: name must not be empty"))
 		}
 		if p.Memory <= 0 {
-			return nil, nil, errors.New("create_vm: memory must be greater than 0")
+			return errorResult(errors.New("create_vm: memory must be greater than 0"))
 		}
 		vm, err := client.CreateVM(ctx, &truenas.CreateVMParams{
 			Name:            p.Name,
@@ -148,7 +147,7 @@ func registerVMTools(s *mcp.Server, client *truenas.Client) {
 			CPUModel:        p.CPUModel,
 		})
 		if err != nil {
-			return nil, nil, fmt.Errorf("create_vm: %w", err)
+			return errorResult(fmt.Errorf("create_vm: %w", err))
 		}
 		return jsonResult(vm)
 	})
@@ -173,7 +172,7 @@ func registerVMTools(s *mcp.Server, client *truenas.Client) {
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p updateVMInput) (*mcp.CallToolResult, any, error) {
 		if p.ID <= 0 {
-			return nil, nil, errors.New("update_vm: id must be a positive integer")
+			return errorResult(errors.New("update_vm: id must be a positive integer"))
 		}
 		vm, err := client.UpdateVM(ctx, p.ID, &truenas.UpdateVMParams{
 			Name:            p.Name,
@@ -188,7 +187,7 @@ func registerVMTools(s *mcp.Server, client *truenas.Client) {
 			CPUModel:        p.CPUModel,
 		})
 		if err != nil {
-			return nil, nil, fmt.Errorf("update_vm: %w", err)
+			return errorResult(fmt.Errorf("update_vm: %w", err))
 		}
 		return jsonResult(vm)
 	})
@@ -203,11 +202,11 @@ func registerVMTools(s *mcp.Server, client *truenas.Client) {
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p listVMDevicesInput) (*mcp.CallToolResult, any, error) {
 		if p.ID <= 0 {
-			return nil, nil, errors.New("list_vm_devices: id must be a positive integer")
+			return errorResult(errors.New("list_vm_devices: id must be a positive integer"))
 		}
 		devices, err := client.ListVMDevices(ctx, p.ID)
 		if err != nil {
-			return nil, nil, fmt.Errorf("list_vm_devices: %w", err)
+			return errorResult(fmt.Errorf("list_vm_devices: %w", err))
 		}
 		return jsonResult(devices)
 	})
@@ -225,13 +224,13 @@ func registerVMTools(s *mcp.Server, client *truenas.Client) {
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p addVMDeviceInput) (*mcp.CallToolResult, any, error) {
 		if p.VMID <= 0 {
-			return nil, nil, errors.New("add_vm_device: vm_id must be a positive integer")
+			return errorResult(errors.New("add_vm_device: vm_id must be a positive integer"))
 		}
 		switch truenas.VMDeviceType(p.DType) {
 		case truenas.VMDeviceTypeDISK, truenas.VMDeviceTypeCDROM, truenas.VMDeviceTypeNIC, truenas.VMDeviceTypeDISPLAY, truenas.VMDeviceTypeRAW:
 			// valid dtype
 		default:
-			return nil, nil, fmt.Errorf("add_vm_device: dtype must be one of DISK, CDROM, NIC, DISPLAY, RAW; got %q", p.DType)
+			return errorResult(fmt.Errorf("add_vm_device: dtype must be one of DISK, CDROM, NIC, DISPLAY, RAW; got %q", p.DType))
 		}
 		device, err := client.AddVMDevice(ctx, &truenas.AddVMDeviceParams{
 			VMID:       p.VMID,
@@ -240,7 +239,7 @@ func registerVMTools(s *mcp.Server, client *truenas.Client) {
 			Order:      p.Order,
 		})
 		if err != nil {
-			return nil, nil, fmt.Errorf("add_vm_device: %w", err)
+			return errorResult(fmt.Errorf("add_vm_device: %w", err))
 		}
 		return jsonResult(device)
 	})

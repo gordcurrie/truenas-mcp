@@ -5,13 +5,12 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/modelcontextprotocol/go-sdk/mcp"
-
 	"github.com/gordcurrie/truenas-mcp/internal/truenas"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // registerSnapshotTools registers all ZFS snapshot-related MCP tools onto the server.
-func registerSnapshotTools(s *mcp.Server, client *truenas.Client) {
+func registerSnapshotTools(s *mcp.Server, client truenasClient) {
 	type listSnapshotsInput struct {
 		// Dataset filters results to snapshots of this dataset (e.g. "Storage/backups").
 		// Leave empty to return snapshots from all datasets.
@@ -27,7 +26,7 @@ func registerSnapshotTools(s *mcp.Server, client *truenas.Client) {
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p listSnapshotsInput) (*mcp.CallToolResult, any, error) {
 		snaps, err := client.ListSnapshots(ctx, p.Dataset, truenas.ListOptions{Limit: p.Limit, Offset: p.Offset})
 		if err != nil {
-			return nil, nil, fmt.Errorf("list_snapshots: %w", err)
+			return errorResult(fmt.Errorf("list_snapshots: %w", err))
 		}
 		return jsonResult(snaps)
 	})
@@ -44,14 +43,14 @@ func registerSnapshotTools(s *mcp.Server, client *truenas.Client) {
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p getSnapshotInput) (*mcp.CallToolResult, any, error) {
 		if p.ID == "" {
-			return nil, nil, errors.New("get_snapshot: id must not be empty")
+			return errorResult(errors.New("get_snapshot: id must not be empty"))
 		}
 		snap, err := client.GetSnapshot(ctx, p.ID)
 		if err != nil {
 			if errors.Is(err, truenas.ErrNotFound) {
-				return nil, nil, fmt.Errorf("get_snapshot: snapshot %q not found", p.ID)
+				return errorResult(fmt.Errorf("get_snapshot: snapshot %q not found", p.ID))
 			}
-			return nil, nil, fmt.Errorf("get_snapshot: %w", err)
+			return errorResult(fmt.Errorf("get_snapshot: %w", err))
 		}
 		return jsonResult(snap)
 	})
@@ -71,10 +70,10 @@ func registerSnapshotTools(s *mcp.Server, client *truenas.Client) {
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p createSnapshotInput) (*mcp.CallToolResult, any, error) {
 		if p.Dataset == "" {
-			return nil, nil, errors.New("create_snapshot: dataset must not be empty")
+			return errorResult(errors.New("create_snapshot: dataset must not be empty"))
 		}
 		if p.Name == "" {
-			return nil, nil, errors.New("create_snapshot: name must not be empty")
+			return errorResult(errors.New("create_snapshot: name must not be empty"))
 		}
 		snap, err := client.CreateSnapshot(ctx, truenas.CreateSnapshotParams{
 			Dataset:   p.Dataset,
@@ -82,7 +81,7 @@ func registerSnapshotTools(s *mcp.Server, client *truenas.Client) {
 			Recursive: p.Recursive,
 		})
 		if err != nil {
-			return nil, nil, fmt.Errorf("create_snapshot: %w", err)
+			return errorResult(fmt.Errorf("create_snapshot: %w", err))
 		}
 		return jsonResult(snap)
 	})
