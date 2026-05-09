@@ -37,10 +37,10 @@ type Dataset struct {
 	Encrypted  bool         `json:"encrypted"`
 	Available  DatasetValue `json:"available"`
 	Used       DatasetValue `json:"used"`
-	// Quota and Comments use omitempty, but because DatasetValue is a struct
-	// omitempty only fires for the exact zero value. In practice TrueNAS returns
-	// a non-zero DatasetValue even for unset quotas ({value:"",rawvalue:"0",...}),
-	// so these fields appear as null (from MarshalJSON) rather than being omitted.
+	// Quota and Comments omit omitempty: DatasetValue is a struct, so omitempty
+	// only fires for the exact zero value. TrueNAS returns a non-zero DatasetValue
+	// even for unset quotas ({value:"",rawvalue:"0",...}), so MarshalJSON returns
+	// null for those fields rather than omitting them.
 	Quota       DatasetValue `json:"quota"`
 	Compression DatasetValue `json:"compression"`
 	Comments    DatasetValue `json:"comments"`
