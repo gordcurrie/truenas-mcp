@@ -17,8 +17,8 @@ import (
 
 const (
 	wsHandshakeTimeout = 10 * time.Second
-	defaultCallTimeout = 30 * time.Second  // applied when ctx has no deadline
-	maxMessageBytes    = 10 * 1024 * 1024  // 10 MiB cap on inbound WebSocket messages
+	defaultCallTimeout = 30 * time.Second // applied when ctx has no deadline
+	maxMessageBytes    = 10 * 1024 * 1024 // 10 MiB cap on inbound WebSocket messages
 )
 
 // rpcRequest is a JSON-RPC 2.0 request frame sent to TrueNAS.

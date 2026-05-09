@@ -18,35 +18,35 @@ type mockTruenasClient struct {
 	getDatasetFn    func(context.Context, string) (*truenas.Dataset, error)
 	createDatasetFn func(context.Context, *truenas.CreateDatasetParams) (*truenas.Dataset, error)
 
-	listSnapshotsFn  func(context.Context, string, ...truenas.ListOptions) ([]truenas.Snapshot, error)
-	getSnapshotFn    func(context.Context, string) (*truenas.Snapshot, error)
-	createSnapshotFn func(context.Context, truenas.CreateSnapshotParams) (*truenas.Snapshot, error)
+	listSnapshotsFn    func(context.Context, string, ...truenas.ListOptions) ([]truenas.Snapshot, error)
+	getSnapshotFn      func(context.Context, string) (*truenas.Snapshot, error)
+	createSnapshotFn   func(context.Context, truenas.CreateSnapshotParams) (*truenas.Snapshot, error)
 	rollbackSnapshotFn func(context.Context, string, truenas.RollbackSnapshotParams) error
-	deleteSnapshotFn func(context.Context, string) error
+	deleteSnapshotFn   func(context.Context, string) error
 
-	listVMsFn      func(context.Context, ...truenas.ListOptions) ([]truenas.VM, error)
-	getVMFn        func(context.Context, int) (*truenas.VM, error)
-	startVMFn      func(context.Context, int) (int, error)
-	stopVMFn       func(context.Context, int, bool) (int, error)
-	restartVMFn    func(context.Context, int) (int, error)
-	createVMFn     func(context.Context, *truenas.CreateVMParams) (*truenas.VM, error)
-	updateVMFn     func(context.Context, int, *truenas.UpdateVMParams) (*truenas.VM, error)
-	deleteVMFn     func(context.Context, int) error
-	listVMDevicesFn func(context.Context, int) ([]truenas.VMDevice, error)
-	addVMDeviceFn  func(context.Context, *truenas.AddVMDeviceParams) (*truenas.VMDevice, error)
+	listVMsFn        func(context.Context, ...truenas.ListOptions) ([]truenas.VM, error)
+	getVMFn          func(context.Context, int) (*truenas.VM, error)
+	startVMFn        func(context.Context, int) (int, error)
+	stopVMFn         func(context.Context, int, bool) (int, error)
+	restartVMFn      func(context.Context, int) (int, error)
+	createVMFn       func(context.Context, *truenas.CreateVMParams) (*truenas.VM, error)
+	updateVMFn       func(context.Context, int, *truenas.UpdateVMParams) (*truenas.VM, error)
+	deleteVMFn       func(context.Context, int) error
+	listVMDevicesFn  func(context.Context, int) ([]truenas.VMDevice, error)
+	addVMDeviceFn    func(context.Context, *truenas.AddVMDeviceParams) (*truenas.VMDevice, error)
 	deleteVMDeviceFn func(context.Context, int) error
 
-	listAppsFn       func(context.Context, ...truenas.ListOptions) ([]truenas.App, error)
-	getAppFn         func(context.Context, string) (*truenas.App, error)
-	startAppFn       func(context.Context, string) (int, error)
-	stopAppFn        func(context.Context, string) (int, error)
-	restartAppFn     func(context.Context, string) (int, error)
-	listImagesFn     func(context.Context) ([]truenas.Image, error)
-	createAppFn      func(context.Context, *truenas.CreateAppParams) (int, error)
-	deleteAppFn      func(context.Context, string) error
-	upgradeAppFn     func(context.Context, string, string) (int, error)
+	listAppsFn          func(context.Context, ...truenas.ListOptions) ([]truenas.App, error)
+	getAppFn            func(context.Context, string) (*truenas.App, error)
+	startAppFn          func(context.Context, string) (int, error)
+	stopAppFn           func(context.Context, string) (int, error)
+	restartAppFn        func(context.Context, string) (int, error)
+	listImagesFn        func(context.Context) ([]truenas.Image, error)
+	createAppFn         func(context.Context, *truenas.CreateAppParams) (int, error)
+	deleteAppFn         func(context.Context, string) error
+	upgradeAppFn        func(context.Context, string, string) (int, error)
 	getUpgradeSummaryFn func(context.Context, string) (*truenas.AppUpgradeSummary, error)
-	rollbackAppFn    func(context.Context, string, string) (int, error)
+	rollbackAppFn       func(context.Context, string, string) (int, error)
 
 	listInterfacesFn func(context.Context) ([]truenas.Interface, error)
 	listDirectoryFn  func(context.Context, string) ([]truenas.DirEntry, error)

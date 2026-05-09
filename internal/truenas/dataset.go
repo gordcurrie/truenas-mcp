@@ -29,21 +29,21 @@ func (v DatasetValue) MarshalJSON() ([]byte, error) {
 
 // Dataset represents a ZFS dataset or zvol on TrueNAS SCALE.
 type Dataset struct {
-	ID          string       `json:"id"`
-	Name        string       `json:"name"`
-	Pool        string       `json:"pool"`
-	Type        string       `json:"type"` // FILESYSTEM or VOLUME
-	MountPoint  *string      `json:"mountpoint,omitempty"`
-	Encrypted   bool         `json:"encrypted"`
-	Available   DatasetValue `json:"available"`
-	Used        DatasetValue `json:"used"`
+	ID         string       `json:"id"`
+	Name       string       `json:"name"`
+	Pool       string       `json:"pool"`
+	Type       string       `json:"type"` // FILESYSTEM or VOLUME
+	MountPoint *string      `json:"mountpoint,omitempty"`
+	Encrypted  bool         `json:"encrypted"`
+	Available  DatasetValue `json:"available"`
+	Used       DatasetValue `json:"used"`
 	// Quota and Comments use omitempty, but because DatasetValue is a struct
 	// omitempty only fires for the exact zero value. In practice TrueNAS returns
 	// a non-zero DatasetValue even for unset quotas ({value:"",rawvalue:"0",...}),
 	// so these fields appear as null (from MarshalJSON) rather than being omitted.
-	Quota       DatasetValue `json:"quota,omitempty"`
+	Quota       DatasetValue `json:"quota"`
 	Compression DatasetValue `json:"compression"`
-	Comments    DatasetValue `json:"comments,omitempty"`
+	Comments    DatasetValue `json:"comments"`
 	Children    []Dataset    `json:"children,omitempty"`
 }
 
