@@ -214,7 +214,7 @@ func TestInstallCustomApp(t *testing.T) {
 		defer cleanup()
 
 		res := callTool(t, cs, "install_custom_app", map[string]any{
-			"app_name":                    "my-app",
+			"app_name":                     "my-app",
 			"custom_compose_config_string": "services:\n  web:\n    image: nginx\n",
 		})
 		assertResultJSON(t, res)
@@ -225,7 +225,7 @@ func TestInstallCustomApp(t *testing.T) {
 		defer cleanup()
 
 		res := callTool(t, cs, "install_custom_app", map[string]any{
-			"app_name":                    "",
+			"app_name":                     "",
 			"custom_compose_config_string": "services: {}",
 		})
 		assertError(t, res, "app_name must not be empty")

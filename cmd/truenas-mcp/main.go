@@ -111,8 +111,8 @@ func run() error {
 			ReadHeaderTimeout: 30 * time.Second,
 			// WriteTimeout must exceed the TrueNAS API client timeout (30s) plus
 			// any job-polling time so that in-flight responses are never cut short.
-			WriteTimeout: 90 * time.Second,
-			IdleTimeout:  120 * time.Second,
+			WriteTimeout:   90 * time.Second,
+			IdleTimeout:    120 * time.Second,
 			MaxHeaderBytes: 1 << 20,
 		}
 		slog.Info("truenas-mcp listening", "addr", *addr, "transport", "http")
