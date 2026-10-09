@@ -22,6 +22,13 @@ var (
 	destructiveToolNames = []string{
 		"delete_app", "delete_snapshot", "delete_vm", "delete_vm_device", "rollback_snapshot",
 	}
+	// additiveToolNames are mutating tools that only create or start things
+	// and therefore advertise DestructiveHint=false. Every other mutating tool
+	// must advertise DestructiveHint=true.
+	additiveToolNames = []string{
+		"add_vm_device", "create_dataset", "create_snapshot", "create_vm",
+		"install_app", "install_custom_app", "start_app", "start_vm",
+	}
 )
 
 // listTools returns every tool advertised by the session, sorted by name.
@@ -109,10 +116,17 @@ func TestToolMetadata(t *testing.T) {
 				t.Errorf("ReadOnlyHint = %v, want %v", tool.Annotations.ReadOnlyHint, readOnly)
 			}
 
-			destructive := slices.Contains(destructiveToolNames, tool.Name)
-			gotDestructive := tool.Annotations.DestructiveHint != nil && *tool.Annotations.DestructiveHint
-			if destructive && !gotDestructive {
-				t.Error("destructive tool must set DestructiveHint=true")
+			if readOnly {
+				return
+			}
+			// Per the MCP spec an omitted destructiveHint defaults to true, so
+			// every mutating tool must state it explicitly.
+			if tool.Annotations.DestructiveHint == nil {
+				t.Fatal("mutating tool must set DestructiveHint explicitly")
+			}
+			wantDestructive := !slices.Contains(additiveToolNames, tool.Name)
+			if *tool.Annotations.DestructiveHint != wantDestructive {
+				t.Errorf("DestructiveHint = %v, want %v", *tool.Annotations.DestructiveHint, wantDestructive)
 			}
 		})
 	}
