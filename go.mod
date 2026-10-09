@@ -1,6 +1,6 @@
 module github.com/gordcurrie/truenas-mcp
 
-go 1.26.6
+go 1.26.9
 
 require (
 	github.com/gorilla/websocket v1.5.3
@@ -13,5 +13,5 @@ require (
 	github.com/segmentio/encoding v0.5.4 // indirect
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
 	golang.org/x/oauth2 v0.34.0 // indirect
-	golang.org/x/sys v0.40.0 // indirect
+	golang.org/x/sys v0.44.0 // indirect
 )
