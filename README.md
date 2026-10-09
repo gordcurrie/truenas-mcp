@@ -105,7 +105,7 @@ mv <binary-name> /usr/local/bin/truenas-mcp
 
 ### Build from source
 
-Requires Go 1.26+. You will also need a TrueNAS SCALE instance and an API key — create one in the TrueNAS UI under **Credentials → API Keys**.
+Requires Go 1.27+. You will also need a TrueNAS SCALE instance and an API key — create one in the TrueNAS UI under **Credentials → API Keys**.
 
 ```bash
 git clone https://github.com/gordcurrie/truenas-mcp

@@ -1,10 +1,13 @@
 BINARY := bin/truenas-mcp
 CMD    := ./cmd/truenas-mcp
 
-GOFUMPT_VERSION      := v0.7.0
-GOSEC_VERSION        := v2.22.8
-GOVULNCHECK_VERSION  := v1.1.4
-GOLANGCILINT_VERSION := v2.10.1
+GOFUMPT_VERSION      := v0.12.0
+# TODO: gosec is pinned to an unreleased master commit because v2.29.0 cannot
+# load Go 1.27 export data (securego/gosec#1771). Switch back to a tagged
+# release once one ships with the fix (>= v2.29.1).
+GOSEC_VERSION        := v2.29.1-0.20261009120814-7b1b5cebe007
+GOVULNCHECK_VERSION  := v1.8.0
+GOLANGCILINT_VERSION := v2.14.0
 
 .PHONY: all install-tools fix fmt vet lint sec vulncheck test build check clean
 
