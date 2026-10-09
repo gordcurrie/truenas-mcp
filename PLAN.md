@@ -215,6 +215,37 @@ hardening pass.
 
 ---
 
+## PR 3 — Go 1.27.2 + go-sdk v1.8.0
+
+**Goal**: Move to Go 1.27.2 and the latest MCP go-sdk, and close the test gaps that an
+SDK upgrade could break unnoticed.
+
+**Tasks**:
+
+- ✅ **`go.mod`** — Go 1.26.9 → 1.27.2; `modelcontextprotocol/go-sdk` v1.4.1 → v1.8.0
+  plus indirect deps. No source changes required by the SDK upgrade.
+
+- ✅ **`Makefile` / `govulncheck.yml`** — Bump gofumpt, golangci-lint and govulncheck.
+  gosec is pinned to an unreleased master commit (v2.29.0 cannot load Go 1.27 export
+  data, securego/gosec#1771); TODO to return to a tagged release.
+
+- ✅ **`tools/*.go`** — Set explicit `DestructiveHint` on every mutating tool. An omitted
+  hint defaults to `true` per the MCP spec, so additive tools were previously advertised
+  as destructive. See README "Tool annotations".
+
+- ✅ **`internal/truenas/client.go`** — An expired caller context no longer tears down
+  the WebSocket connection or masks `context.DeadlineExceeded` behind a reconnect error.
+
+- ✅ **Tests** — Exact advertised tool set with and without destructive tools; per-tool
+  annotations; SDK input-schema validation; streamable HTTP handler end-to-end including
+  the 4 MiB body limit; `PollJob` via `testing/synctest` + `httptest.NewTestServer`.
+
+- ✅ `make check` passes
+
+**Tool count**: 36 (31 always registered + 5 destructive) — unchanged.
+
+---
+
 ## Security Rules
 
 - No credentials in source — env vars only

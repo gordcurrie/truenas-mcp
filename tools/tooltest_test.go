@@ -9,14 +9,22 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// connectTestServer registers all tools on a new MCP server backed by the
-// provided mock, then returns a connected client session. The cleanup function
-// closes the session and must be deferred by the caller.
+// connectTestServer registers all tools (including destructive ones) on a new
+// MCP server backed by the provided mock, then returns a connected client
+// session. The cleanup function closes the session and must be deferred by the
+// caller.
 func connectTestServer(t *testing.T, mock *mockTruenasClient) (session *mcp.ClientSession, cleanup func()) {
+	t.Helper()
+	return connectTestServerWithConfig(t, mock, Config{AllowDestructive: true})
+}
+
+// connectTestServerWithConfig is like connectTestServer but registers tools
+// using the provided Config.
+func connectTestServerWithConfig(t *testing.T, mock *mockTruenasClient, cfg Config) (session *mcp.ClientSession, cleanup func()) {
 	t.Helper()
 
 	s := mcp.NewServer(&mcp.Implementation{Name: "test", Version: "v0.0.1"}, nil)
-	RegisterAll(s, mock, Config{AllowDestructive: true})
+	RegisterAll(s, mock, cfg)
 
 	ct, st := mcp.NewInMemoryTransports()
 	ctx := context.Background()

@@ -96,15 +96,9 @@ func run() error {
 			return fmt.Errorf("stdio server: %w", err)
 		}
 	case "http":
-		// The factory always returns the same server instance: this is intentional for a
-		// stateless tool server with no per-session resources. If per-session state is
-		// ever needed, the factory must create a new server per request instead.
-		handler := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server {
-			return server
-		}, nil)
 		httpServer := &http.Server{
 			Addr:    *addr,
-			Handler: http.MaxBytesHandler(handler, 4<<20),
+			Handler: newHTTPHandler(server),
 			// ReadTimeout must leave room for slow clients sending large bodies.
 			ReadTimeout: 60 * time.Second,
 			// ReadHeaderTimeout is a tighter guard against Slowloris attacks.
@@ -132,6 +126,18 @@ func run() error {
 	}
 
 	return nil
+}
+
+// newHTTPHandler returns the streamable HTTP handler that serves server,
+// with request bodies capped at 4 MiB.
+func newHTTPHandler(server *mcp.Server) http.Handler {
+	// The factory always returns the same server instance: this is intentional for a
+	// stateless tool server with no per-session resources. If per-session state is
+	// ever needed, the factory must create a new server per request instead.
+	handler := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server {
+		return server
+	}, nil)
+	return http.MaxBytesHandler(handler, 4<<20)
 }
 
 // requireEnv returns the value of the named environment variable or an error

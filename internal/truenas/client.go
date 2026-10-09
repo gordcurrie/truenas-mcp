@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/url"
 	"strings"
 	"sync"
@@ -54,12 +55,16 @@ type Client struct {
 	host     string // base URL, e.g. "https://truenas.local"
 	apiKey   string
 	insecure bool
-	conn     *websocket.Conn
-	mu       sync.Mutex // protects conn, done, and pending map
-	reconMu  sync.Mutex // serialises reconnection attempts
-	nextID   atomic.Int64
-	pending  map[int64]chan rpcResponse
-	done     chan struct{}
+	// dialContext, when non-nil, overrides how the WebSocket's underlying
+	// network connection is established. Tests use it to dial an in-memory
+	// httptest server.
+	dialContext func(ctx context.Context, network, addr string) (net.Conn, error)
+	conn        *websocket.Conn
+	mu          sync.Mutex // protects conn, done, and pending map
+	reconMu     sync.Mutex // serialises reconnection attempts
+	nextID      atomic.Int64
+	pending     map[int64]chan rpcResponse
+	done        chan struct{}
 }
 
 // NewClient creates a new TrueNAS SCALE API client.
@@ -127,6 +132,7 @@ func (c *Client) Connect(ctx context.Context) error {
 
 	dialer := websocket.Dialer{
 		HandshakeTimeout: wsHandshakeTimeout,
+		NetDialContext:   c.dialContext,
 	}
 	if c.insecure {
 		dialer.TLSClientConfig = &tls.Config{InsecureSkipVerify: true} /* #nosec G402 */ //nolint:gosec // G402: InsecureSkipVerify is only set when TRUENAS_INSECURE=true, which the user must explicitly opt into. Default is secure (verify enabled).
@@ -239,6 +245,11 @@ func (c *Client) call(ctx context.Context, method string, params, out any) error
 	if err == nil {
 		return nil
 	}
+	// The caller gave up; reconnecting with a done context cannot succeed and
+	// would mask the cancellation with a connection error.
+	if ctx.Err() != nil {
+		return err
+	}
 	// If the connection was dropped, attempt one reconnect and retry.
 	select {
 	case <-c.done:
@@ -259,6 +270,11 @@ func (c *Client) callOnce(ctx context.Context, method string, params, out any) e
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, defaultCallTimeout)
 		defer cancel()
+	}
+	// An expired context would turn into a past write deadline, failing the
+	// write and needlessly tearing down a healthy connection.
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("RPC call %s: %w", method, err)
 	}
 
 	id := c.nextID.Add(1)
@@ -303,6 +319,9 @@ func (c *Client) callOnce(ctx context.Context, method string, params, out any) e
 			close(c.done)
 		}
 		c.mu.Unlock()
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return fmt.Errorf("sending RPC request for %s: %w", method, ctxErr)
+		}
 		return fmt.Errorf("sending RPC request for %s: %w", method, err)
 	}
 

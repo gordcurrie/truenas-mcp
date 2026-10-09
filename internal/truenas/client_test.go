@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gorilla/websocket"
 )
@@ -24,7 +25,13 @@ type methodHandler func(params json.RawMessage) (any, *rpcError)
 
 func wsTestServer(t *testing.T, handlers map[string]methodHandler) *httptest.Server {
 	t.Helper()
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return httptest.NewServer(wsHandler(t, handlers))
+}
+
+// wsHandler returns the WebSocket JSON-RPC 2.0 handler used by wsTestServer.
+func wsHandler(t *testing.T, handlers map[string]methodHandler) http.Handler {
+	t.Helper()
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := wsUpgrader.Upgrade(w, r, nil)
 		if err != nil {
 			t.Errorf("WS upgrade: %v", err)
@@ -84,8 +91,7 @@ func wsTestServer(t *testing.T, handlers map[string]methodHandler) *httptest.Ser
 				return // client disconnected
 			}
 		}
-	}))
-	return srv
+	})
 }
 
 // newTestClient creates a Client connected to the provided test server.
@@ -320,5 +326,32 @@ func TestClient_call_contextCancelled(t *testing.T) {
 	}
 	if !errors.Is(err, context.Canceled) {
 		t.Errorf("expected context.Canceled in error chain, got %v", err)
+	}
+}
+
+func TestClient_call_expiredDeadlineKeepsConnection(t *testing.T) {
+	t.Parallel()
+
+	srv := wsTestServer(t, map[string]methodHandler{
+		"system.info": func(json.RawMessage) (any, *rpcError) { return map[string]any{}, nil },
+	})
+	defer srv.Close()
+
+	c := newTestClient(t, srv.URL)
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
+	defer cancel()
+
+	err := c.call(ctx, "system.info", []any{}, nil)
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("expected context.DeadlineExceeded in error chain, got %v", err)
+	}
+
+	select {
+	case <-c.done:
+		t.Fatal("expired caller deadline tore down the connection")
+	default:
+	}
+	if err := c.call(context.Background(), "system.info", []any{}, nil); err != nil {
+		t.Errorf("follow-up call on same connection: %v", err)
 	}
 }

@@ -54,7 +54,7 @@ func registerAppTools(s *mcp.Server, client truenasClient) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "start_app",
 		Description: "Start an app by name. Returns the async job ID immediately (non-blocking).",
-		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false},
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: new(false)},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p startAppInput) (*mcp.CallToolResult, any, error) {
 		if p.Name == "" {
 			return errorResult(errors.New("start_app: name must not be empty"))
@@ -72,7 +72,7 @@ func registerAppTools(s *mcp.Server, client truenasClient) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "stop_app",
 		Description: "Stop a running app by name. Returns the async job ID immediately (non-blocking).",
-		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false},
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: new(true)},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p stopAppInput) (*mcp.CallToolResult, any, error) {
 		if p.Name == "" {
 			return errorResult(errors.New("stop_app: name must not be empty"))
@@ -90,7 +90,7 @@ func registerAppTools(s *mcp.Server, client truenasClient) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "restart_app",
 		Description: "Restart an app by name (redeploy). Returns the async job ID immediately (non-blocking).",
-		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false},
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: new(true)},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p restartAppInput) (*mcp.CallToolResult, any, error) {
 		if p.Name == "" {
 			return errorResult(errors.New("restart_app: name must not be empty"))
@@ -124,7 +124,7 @@ func registerAppTools(s *mcp.Server, client truenasClient) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "install_app",
 		Description: "Install a catalog app from the TrueNAS app catalog. Returns the async job ID immediately (non-blocking).",
-		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false},
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: new(false)},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p installAppInput) (*mcp.CallToolResult, any, error) {
 		if p.AppName == "" {
 			return errorResult(errors.New("install_app: app_name must not be empty"))
@@ -159,7 +159,7 @@ func registerAppTools(s *mcp.Server, client truenasClient) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "install_custom_app",
 		Description: "Install a custom Docker Compose app on TrueNAS SCALE. Returns the async job ID immediately (non-blocking).",
-		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false},
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: new(false)},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p installCustomAppInput) (*mcp.CallToolResult, any, error) {
 		if p.AppName == "" {
 			return errorResult(errors.New("install_custom_app: app_name must not be empty"))
@@ -185,7 +185,7 @@ func registerAppTools(s *mcp.Server, client truenasClient) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "upgrade_app",
 		Description: "Upgrade an installed app to the specified version, or to the latest available version if version is omitted. Returns the async job ID immediately (non-blocking).",
-		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false},
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: new(true)},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p upgradeAppInput) (*mcp.CallToolResult, any, error) {
 		if p.Name == "" {
 			return errorResult(errors.New("upgrade_app: name must not be empty"))
@@ -222,7 +222,7 @@ func registerAppTools(s *mcp.Server, client truenasClient) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "rollback_app",
 		Description: "Roll an app back to a previous version. Returns the async job ID immediately (non-blocking).",
-		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false},
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: new(true)},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p rollbackAppInput) (*mcp.CallToolResult, any, error) {
 		if p.Name == "" {
 			return errorResult(errors.New("rollback_app: name must not be empty"))

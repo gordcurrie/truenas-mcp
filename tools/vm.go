@@ -57,7 +57,7 @@ func registerVMTools(s *mcp.Server, client truenasClient) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "start_vm",
 		Description: "Start a virtual machine by its numeric ID. Returns the async job ID immediately (non-blocking).",
-		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false},
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: new(false)},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p startVMInput) (*mcp.CallToolResult, any, error) {
 		if p.ID <= 0 {
 			return errorResult(errors.New("start_vm: id must be a positive integer"))
@@ -77,7 +77,7 @@ func registerVMTools(s *mcp.Server, client truenasClient) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "stop_vm",
 		Description: "Stop a virtual machine by its numeric ID. Set force=true to forcibly terminate without a graceful shutdown. Returns the async job ID immediately (non-blocking).",
-		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false},
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: new(true)},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p stopVMInput) (*mcp.CallToolResult, any, error) {
 		if p.ID <= 0 {
 			return errorResult(errors.New("stop_vm: id must be a positive integer"))
@@ -96,7 +96,7 @@ func registerVMTools(s *mcp.Server, client truenasClient) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "restart_vm",
 		Description: "Restart a virtual machine by its numeric ID. Returns the async job ID immediately (non-blocking).",
-		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false},
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: new(true)},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p restartVMInput) (*mcp.CallToolResult, any, error) {
 		if p.ID <= 0 {
 			return errorResult(errors.New("restart_vm: id must be a positive integer"))
@@ -125,7 +125,7 @@ func registerVMTools(s *mcp.Server, client truenasClient) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "create_vm",
 		Description: "Create a new virtual machine. At minimum provide name and memory (in MiB). Returns the created VM. Note: VM names must be alphanumeric only — hyphens, underscores, and other special characters are not allowed.",
-		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false},
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: new(false)},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p createVMInput) (*mcp.CallToolResult, any, error) {
 		if p.Name == "" {
 			return errorResult(errors.New("create_vm: name must not be empty"))
@@ -169,7 +169,7 @@ func registerVMTools(s *mcp.Server, client truenasClient) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "update_vm",
 		Description: "Update configuration of an existing VM by ID. Only fields with non-zero/non-empty values are applied; fields left unset or set to their zero value are ignored and remain unchanged. Clearing a field to empty string or 0 is not supported. Returns the updated VM.",
-		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false},
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: new(true)},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p updateVMInput) (*mcp.CallToolResult, any, error) {
 		if p.ID <= 0 {
 			return errorResult(errors.New("update_vm: id must be a positive integer"))
@@ -221,7 +221,7 @@ func registerVMTools(s *mcp.Server, client truenasClient) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "add_vm_device",
 		Description: "Attach a hardware device to a VM. Supports DISK (zvol-backed), CDROM (ISO file), NIC (virtio/e1000), DISPLAY (VNC), and RAW (advanced passthrough). The VM does not need to be stopped to add devices, but changes take effect on next boot.",
-		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false},
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: new(false)},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p addVMDeviceInput) (*mcp.CallToolResult, any, error) {
 		if p.VMID <= 0 {
 			return errorResult(errors.New("add_vm_device: vm_id must be a positive integer"))

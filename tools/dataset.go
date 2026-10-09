@@ -72,7 +72,7 @@ func registerDatasetTools(s *mcp.Server, client truenasClient) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "create_dataset",
 		Description: "Create a new ZFS dataset (filesystem) or zvol. At minimum, provide the full path name including the pool (e.g. \"Storage/backups\"). For zvols (type=VOLUME) volsize in bytes is required.",
-		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false},
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: new(false)},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p createDatasetInput) (*mcp.CallToolResult, any, error) {
 		if p.Name == "" {
 			return errorResult(errors.New("create_dataset: name must not be empty"))

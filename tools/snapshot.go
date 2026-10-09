@@ -67,7 +67,7 @@ func registerSnapshotTools(s *mcp.Server, client truenasClient) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "create_snapshot",
 		Description: "Create a new ZFS snapshot of a dataset. Provide the full dataset path and a snapshot name.",
-		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false},
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: new(false)},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p createSnapshotInput) (*mcp.CallToolResult, any, error) {
 		if p.Dataset == "" {
 			return errorResult(errors.New("create_snapshot: dataset must not be empty"))
