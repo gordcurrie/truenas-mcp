@@ -80,6 +80,16 @@ An MCP server that exposes [TrueNAS SCALE](https://www.truenas.com/truenas-scale
 | `delete_vm_device` | Remove a hardware device from a VM by device ID | `id` (int); `confirmed: true` (required) |
 | `rollback_snapshot` | Roll a dataset back to a previous snapshot — **all data written after the snapshot is permanently destroyed** | `id` (string); `confirmed: true` (required); `recursive`, `recursive_clones`, `force` (optional) |
 
+### Tool annotations
+
+Every tool advertises [MCP tool annotations](https://modelcontextprotocol.io/specification/2025-06-18/server/tools#tool-annotations) so clients can decide when to ask for confirmation:
+
+| Annotation | Tools |
+|---|---|
+| `readOnlyHint: true` | All `get_*` and `list_*` tools, plus `upgrade_summary` |
+| `destructiveHint: false` | Additive tools: `create_dataset`, `create_snapshot`, `create_vm`, `add_vm_device`, `install_app`, `install_custom_app`, `start_vm`, `start_app` |
+| `destructiveHint: true` | Tools that overwrite or interrupt existing state: `update_vm`, `stop_vm`, `restart_vm`, `stop_app`, `restart_app`, `upgrade_app`, `rollback_app`, and every tool in the Destructive table |
+
 ## Installation
 
 ### Download a pre-built binary
