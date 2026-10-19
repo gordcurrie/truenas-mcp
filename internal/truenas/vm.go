@@ -2,6 +2,7 @@ package truenas
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"maps"
 	"regexp"
@@ -209,7 +210,7 @@ const (
 //
 // Attributes are device-type-specific:
 //
-//	DISK:    {"path": "zvol/pool/dataset", "type": "VIRTIO"}
+//	DISK:    {"path": "/dev/zvol/pool/zvol", "type": "VIRTIO"}
 //	CDROM:   {"path": "/mnt/Storage/isos/debian.iso"}
 //	NIC:     {"type": "VIRTIO", "nic_attach": "br0"}
 //	DISPLAY: {"web": true, "port": 5900, "web_port": 5901}
@@ -221,12 +222,30 @@ type VMDevice struct {
 	Order      *int           `json:"order"`
 }
 
+// UnmarshalJSON decodes a VMDevice and fills DType from attributes.dtype when
+// the top-level dtype field is absent. Current TrueNAS SCALE releases report
+// the device type only inside attributes.
+func (d *VMDevice) UnmarshalJSON(data []byte) error {
+	type vmDeviceAlias VMDevice
+	var a vmDeviceAlias
+	if err := json.Unmarshal(data, &a); err != nil {
+		return fmt.Errorf("decoding VM device: %w", err)
+	}
+	if a.DType == "" {
+		if dt, ok := a.Attributes["dtype"].(string); ok {
+			a.DType = VMDeviceType(dt)
+		}
+	}
+	*d = VMDevice(a)
+	return nil
+}
+
 // AddVMDeviceParams holds the parameters for attaching a new device to a VM.
 // VMID, DType, and Attributes are required.
 //
 // Attributes by device type:
 //
-//	DISK:    {"path": "zvol/pool/dataset", "type": "VIRTIO"}
+//	DISK:    {"path": "/dev/zvol/pool/zvol", "type": "VIRTIO"}
 //	CDROM:   {"path": "/mnt/Storage/isos/pbs.iso"}
 //	NIC:     {"type": "VIRTIO", "nic_attach": "br0"}
 //	DISPLAY: {"web": true, "port": 5900}

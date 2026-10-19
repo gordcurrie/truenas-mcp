@@ -308,7 +308,7 @@ func TestListVMDevices_success(t *testing.T) {
 
 	// Server returns only devices for the requested VM (server-side filtered).
 	devices := []VMDevice{
-		{ID: 1, VMID: 2, DType: VMDeviceTypeDISK, Attributes: map[string]any{"path": "zvol/Storage/pbs/disk0", "type": "VIRTIO"}},
+		{ID: 1, VMID: 2, DType: VMDeviceTypeDISK, Attributes: map[string]any{"path": "/dev/zvol/Storage/pbs/disk0", "type": "VIRTIO"}},
 		{ID: 2, VMID: 2, DType: VMDeviceTypeNIC, Attributes: map[string]any{"type": "VIRTIO", "nic_attach": "br0"}},
 	}
 
@@ -341,6 +341,65 @@ func TestListVMDevices_success(t *testing.T) {
 	}
 	if len(got) != 2 {
 		t.Fatalf("expected 2 devices for VM 2, got %d", len(got))
+	}
+}
+
+func TestListVMDevices_dtypeFromAttributes(t *testing.T) {
+	t.Parallel()
+
+	// Real TrueNAS SCALE responses carry dtype only inside attributes.
+	srv := wsTestServer(t, map[string]methodHandler{
+		"vm.device.query": func(_ json.RawMessage) (any, *rpcError) {
+			return []map[string]any{
+				{"id": 13, "vm": 4, "attributes": map[string]any{"dtype": "NIC", "type": "VIRTIO", "nic_attach": "enp5s0"}, "order": 3},
+				{"id": 15, "vm": 4, "attributes": map[string]any{"dtype": "DISK", "path": "/dev/zvol/Storage/pbs-disk"}, "order": 1},
+				{"id": 16, "vm": 4, "attributes": map[string]any{"path": "/mnt/x.iso"}},
+			}, nil
+		},
+	})
+	defer srv.Close()
+
+	c := newTestClient(t, srv.URL)
+	got, err := c.ListVMDevices(context.Background(), 4)
+	if err != nil {
+		t.Fatalf("ListVMDevices: %v", err)
+	}
+	want := []VMDeviceType{VMDeviceTypeNIC, VMDeviceTypeDISK, ""}
+	if len(got) != len(want) {
+		t.Fatalf("expected %d devices, got %d", len(want), len(got))
+	}
+	for i, w := range want {
+		if got[i].DType != w {
+			t.Errorf("device %d: DType = %q, want %q", got[i].ID, got[i].DType, w)
+		}
+	}
+}
+
+func TestVMDevice_UnmarshalJSON(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		in   string
+		want VMDeviceType
+	}{
+		{"top-level dtype", `{"id":1,"dtype":"CDROM","attributes":{}}`, VMDeviceTypeCDROM},
+		{"top-level wins", `{"id":1,"dtype":"CDROM","attributes":{"dtype":"DISK"}}`, VMDeviceTypeCDROM},
+		{"attributes dtype", `{"id":1,"dtype":"","attributes":{"dtype":"DISPLAY"}}`, VMDeviceTypeDISPLAY},
+		{"no dtype", `{"id":1,"attributes":{}}`, ""},
+		{"non-string dtype", `{"id":1,"attributes":{"dtype":5}}`, ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			var d VMDevice
+			if err := json.Unmarshal([]byte(tt.in), &d); err != nil {
+				t.Fatalf("Unmarshal: %v", err)
+			}
+			if d.DType != tt.want {
+				t.Errorf("DType = %q, want %q", d.DType, tt.want)
+			}
+		})
 	}
 }
 

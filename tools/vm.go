@@ -213,7 +213,7 @@ func registerVMTools(s *mcp.Server, client truenasClient) {
 
 	type addVMDeviceInput struct {
 		VMID       int            `json:"vm_id"    jsonschema:"Numeric VM ID to attach the device to"`
-		DType      string         `json:"dtype"    jsonschema:"Device type: DISK | CDROM | NIC | DISPLAY | RAW. DISK attrs: {path:'zvol/pool/dataset' type:'VIRTIO'}. CDROM attrs: {path:'/mnt/Storage/isos/file.iso'}. NIC attrs: {type:'VIRTIO' nic_attach:'br0'}. DISPLAY attrs: {web:true port:5900}. RAW is an advanced passthrough type."`
+		DType      string         `json:"dtype"    jsonschema:"Device type: DISK | CDROM | NIC | DISPLAY | RAW. DISK attrs: {path:'/dev/zvol/pool/zvol' type:'VIRTIO'}. CDROM attrs: {path:'/mnt/Storage/isos/file.iso'}. NIC attrs: {type:'VIRTIO' nic_attach:'br0'}. DISPLAY attrs: {web:true port:5900}. RAW is an advanced passthrough type."`
 		Attributes map[string]any `json:"attributes" jsonschema:"Device-type-specific key-value pairs. See dtype description for examples."`
 		Order      *int           `json:"order,omitempty" jsonschema:"Optional boot/device order index"`
 	}
