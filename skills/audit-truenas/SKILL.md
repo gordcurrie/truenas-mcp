@@ -102,12 +102,13 @@ both to the manual review list.
 
 ## Section 4 — Snapshot coverage
 
-1. Build the list of datasets that matter: every top-level dataset under each
-   pool plus any dataset used by an app or VM (for example
-   `Storage/immich`, or the zvols named in VM DISK `path` attributes from
-   Section 6). Skip the pool's root dataset if it holds no data of its own,
+1. Build the list of datasets that matter: every dataset and zvol from the
+   de-duplicated Section 3 list, **including nested ones** such as
+   `Storage/data/photos`. A snapshot of a parent does not cover its children
+   unless it was taken recursively, and `list_snapshots` matches the exact
+   dataset only. Skip the pool's root dataset if it holds no data of its own,
    and skip system datasets whose names start with `.` (such as
-   `apps/.ix-virt`).
+   `apps/.ix-virt`) and everything under them.
    The tools do not map apps to datasets. Match by name, and check **every**
    pool: app config and databases often live on a separate pool from app
    data (for example `apps/immich/db` alongside `Storage/immich`).
@@ -121,9 +122,10 @@ both to the manual review list.
 - A dataset with **no snapshots** — flag `[HIGH]`; no point-in-time recovery.
 - A dataset whose newest snapshot is more than 7 days old, judged from its
   name — flag `[MEDIUM]`; periodic snapshot tasks may have stopped.
-- Manual snapshots (names without the `auto-` prefix) older than 90 days,
-  judged from the name or from a much lower `createtxg` than the newest —
-  flag `[LOW]`; forgotten snapshots hold on to deleted data and space.
+- Manual snapshots (names without the `auto-` prefix) whose name contains a
+  date more than 90 days ago — flag `[LOW]`; forgotten snapshots hold on to
+  deleted data and space. `createtxg` gives creation order, not age: when the
+  name has no date, list the snapshot with its age as unknown.
 
 If no date can be read from any snapshot name, report counts only and say so.
 Snapshot task schedules and retention are not visible through truenas-mcp;

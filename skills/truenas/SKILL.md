@@ -117,12 +117,18 @@ If it fails with `401`/`403`, the API key is wrong or was revoked.
    `latest_version`, `latest_human_version`, `available_versions_for_upgrade`
    and, when TrueNAS has one, `changelog`.
 2. If `upgrade_available` is `false`, stop and say so.
-3. Show the user the current and target versions and the changelog (or say
-   there is none). Offer a snapshot of the app's data dataset(s) first.
+3. Show the user the target version and the changelog (or say there is
+   none). The tools cannot report the installed version; say so rather than
+   guess it. Offer a snapshot of the app's data dataset(s) first.
 4. After approval, call `upgrade_app` with `name` and, if the user picked one,
    `version` (from `available_versions_for_upgrade[].version`, not the human
    version). Omit `version` for the latest.
-5. Confirm with `get_app` that the app returns to `RUNNING`.
+5. Check the result. On current TrueNAS releases `upgrade_app` returns the
+   app object: compare its `version` and `human_version` with the target. On
+   older releases it returns only a job ID. `RUNNING` alone does not prove
+   the upgrade worked, because a failed upgrade can leave the old version
+   running. If the result has no version, call `upgrade_summary` again and
+   ask the user to confirm the installed version in the TrueNAS UI.
 
 #### Roll an app back
 
@@ -198,8 +204,13 @@ These tools are only registered when the server runs with
 | `rollback_snapshot` | Roll a dataset back; all later data and, with `recursive`, later snapshots are destroyed |
 
 Each one requires `confirmed: true`. Before calling one, state exactly what
-will be lost and get explicit approval. Before `rollback_snapshot`, offer to
-take a fresh snapshot of the current state first.
+will be lost and get explicit approval.
+
+A fresh snapshot does **not** protect the current state from
+`rollback_snapshot`. It is newer than the rollback target, so the rollback
+either refuses (without `recursive`) or destroys it (with `recursive`). If the
+user needs to keep the current state, they must copy or replicate it outside
+the dataset first, in the TrueNAS UI.
 
 If the user asks for one of these and the tool is missing, explain that it is
 disabled by design and how to enable it. Do not look for a workaround, such as

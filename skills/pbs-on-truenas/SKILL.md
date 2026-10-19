@@ -116,13 +116,16 @@ add_storage
   type: "pbs"
   server: "<PBS VM IP>"
   datastore: "proxmox-backups"
-  username: "backup@pbs"
+  username: "backup@pbs"            # or the full token ID, e.g. "backup@pbs!pve"
   password: "<password or API token secret>"
   fingerprint: "<PBS certificate fingerprint>"
   content: "backup"
 ```
 
-Ask the user for the password or token secret; do not echo it back. Confirm
+Ask the user whether they use a password or an API token. With a password,
+`username` is the user (`backup@pbs`). With a token, `username` must be the
+full token ID (`backup@pbs!<token name>`) and `password` the token secret; a
+bare user with a token secret fails. Do not echo the secret back. Confirm
 with `get_storage` `storage: "pbs"`.
 
 ## Step 7 — Test a backup (proxmox-mcp)
