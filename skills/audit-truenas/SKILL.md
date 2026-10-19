@@ -105,7 +105,12 @@ both to the manual review list.
 1. Build the list of datasets that matter: every top-level dataset under each
    pool plus any dataset used by an app or VM (for example
    `Storage/immich`, or the zvols named in VM DISK `path` attributes from
-   Section 6). Skip the pool's root dataset if it holds no data of its own.
+   Section 6). Skip the pool's root dataset if it holds no data of its own,
+   and skip system datasets whose names start with `.` (such as
+   `apps/.ix-virt`).
+   The tools do not map apps to datasets. Match by name, and check **every**
+   pool: app config and databases often live on a separate pool from app
+   data (for example `apps/immich/db` alongside `Storage/immich`).
 2. For each of these datasets, call `list_snapshots` with `dataset`.
    Snapshots are not sorted and have no timestamp. Find the newest by the
    largest `createtxg` (compare as a number). Read the date from
