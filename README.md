@@ -38,9 +38,9 @@ An MCP server that exposes [TrueNAS SCALE](https://www.truenas.com/truenas-scale
 |---|---|---|
 | `list_vms` | List all VMs and their state (RUNNING/STOPPED), CPU, and memory | `limit`, `offset` (int, optional — server-side pagination) |
 | `get_vm` | Get detailed information about a specific VM | `id` (int) |
-| `start_vm` | Start a VM; returns async job ID immediately | `id` (int) |
-| `stop_vm` | Stop a VM; set `force=true` to forcibly terminate | `id` (int); `force` (bool, optional) |
-| `restart_vm` | Restart a VM; returns async job ID immediately | `id` (int) |
+| `start_vm` | Start a VM; waits for the job and returns its result | `id` (int) |
+| `stop_vm` | Stop a VM; set `force=true` to forcibly terminate; waits for the job and returns its result | `id` (int); `force` (bool, optional) |
+| `restart_vm` | Restart a VM; waits for the job and returns its result | `id` (int) |
 | `create_vm` | Create a new VM; returns the created VM | `name`, `memory` (required); `vcpus`, `bootloader`, `autostart`, `cores`, `threads`, `cpu_mode`, `cpu_model`, `shutdown_timeout`, `description` (optional) |
 | `update_vm` | Update an existing VM configuration; omitted fields are unchanged | `id` (required); any subset of `name`, `memory`, `vcpus`, `bootloader`, `cores`, `threads`, `cpu_mode`, `cpu_model`, `shutdown_timeout`, `description` |
 | `list_vm_devices` | List all hardware devices attached to a VM (disks, CDROMs, NICs, displays) | `id` (int) |
@@ -52,15 +52,17 @@ An MCP server that exposes [TrueNAS SCALE](https://www.truenas.com/truenas-scale
 |---|---|---|
 | `list_apps` | List all apps managed by TrueNAS SCALE | `limit`, `offset` (int, optional — server-side pagination) |
 | `get_app` | Get detailed information about a specific app by its app name | `name` (string) |
-| `start_app` | Start an app; returns async job ID immediately | `name` (string) |
-| `stop_app` | Stop a running app; returns async job ID immediately | `name` (string) |
-| `restart_app` | Restart an app; returns async job ID immediately | `name` (string) |
+| `start_app` | Start an app; waits for the job and returns its result | `name` (string) |
+| `stop_app` | Stop a running app; waits for the job and returns its result | `name` (string) |
+| `restart_app` | Restart an app; waits for the job and returns its result | `name` (string) |
 | `list_images` | List all Docker images stored on the TrueNAS SCALE system | _(none)_ |
-| `install_app` | Install a catalog app from the TrueNAS app catalog; returns async job ID | `app_name` (string); `catalog_app` (string); `train` (string, default: stable); `version` (string, default: latest) |
-| `install_custom_app` | Install a custom Docker Compose app; returns async job ID | `app_name` (string); `custom_compose_config_string` (string, YAML) |
-| `upgrade_app` | Upgrade an app to a newer version; returns async job ID immediately | `name` (string); `version` (string, optional — omit for latest) |
+| `install_app` | Install a catalog app from the TrueNAS app catalog; waits for the job and returns its result | `app_name` (string); `catalog_app` (string); `train` (string, default: stable); `version` (string, default: latest) |
+| `install_custom_app` | Install a custom Docker Compose app; waits for the job and returns its result | `app_name` (string); `custom_compose_config_string` (string, YAML) |
+| `upgrade_app` | Upgrade an app to a newer version; waits for the job and returns its result | `name` (string); `version` (string, optional — omit for latest) |
 | `upgrade_summary` | Get upgrade availability and changelog for an app | `name` (string) |
-| `rollback_app` | Roll an app back to a previous version; returns async job ID immediately | `name` (string); `version` (string, required) |
+| `rollback_app` | Roll an app back to a previous version; waits for the job and returns its result | `name` (string); `version` (string, required) |
+
+Job tools (`start_vm`, `stop_vm`, `restart_vm` and the app lifecycle, install, upgrade and rollback tools) wait up to 10 minutes for the TrueNAS job to finish and return `{"result": ...}`. Older TrueNAS releases return the job ID as the result instead. If the wait times out, the job keeps running on TrueNAS; check `get_vm` or `get_app` before retrying.
 
 ### ZFS Snapshots
 

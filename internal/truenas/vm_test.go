@@ -102,12 +102,12 @@ func TestStartVM_success(t *testing.T) {
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
-	jobID, err := c.StartVM(context.Background(), 1)
+	res, err := c.StartVM(context.Background(), 1)
 	if err != nil {
 		t.Fatalf("StartVM: %v", err)
 	}
-	if jobID != 42 {
-		t.Errorf("jobID = %d, want 42", jobID)
+	if string(res) != "42" {
+		t.Errorf("result = %s, want 42", res)
 	}
 }
 
@@ -122,12 +122,12 @@ func TestStopVM_success(t *testing.T) {
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
-	jobID, err := c.StopVM(context.Background(), 1, false)
+	res, err := c.StopVM(context.Background(), 1, false)
 	if err != nil {
 		t.Fatalf("StopVM: %v", err)
 	}
-	if jobID != 43 {
-		t.Errorf("jobID = %d, want 43", jobID)
+	if string(res) != "43" {
+		t.Errorf("result = %s, want 43", res)
 	}
 }
 
@@ -142,12 +142,12 @@ func TestRestartVM_success(t *testing.T) {
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
-	jobID, err := c.RestartVM(context.Background(), 1)
+	res, err := c.RestartVM(context.Background(), 1)
 	if err != nil {
 		t.Fatalf("RestartVM: %v", err)
 	}
-	if jobID != 44 {
-		t.Errorf("jobID = %d, want 44", jobID)
+	if string(res) != "44" {
+		t.Errorf("result = %s, want 44", res)
 	}
 }
 

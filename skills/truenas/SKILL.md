@@ -56,11 +56,14 @@ If it fails with `401`/`403`, the API key is wrong or was revoked.
    keep calling with `offset` increased by the number of items returned until
    a page comes back shorter than `limit`. Do not answer "how many" or "is X
    present" questions from a partial page.
-5. **Async jobs.** `start_vm`, `restart_vm`, all app lifecycle tools,
-   `install_app`, `install_custom_app`, `upgrade_app` and `rollback_app` return
-   `{"job_id": N}` immediately. There is no job-status tool. Check the outcome
-   by re-reading the resource (`get_vm` → `status.state`, `get_app` → `state`)
-   after a short wait, and tell the user the job was submitted, not finished.
+5. **Jobs.** `start_vm`, `stop_vm`, `restart_vm`, `start_app`, `stop_app`,
+   `restart_app`, `install_app`, `install_custom_app`, `upgrade_app` and
+   `rollback_app` wait for the TrueNAS job to finish (up to 10 minutes) and
+   return `{"result": ...}`. Older TrueNAS releases return the job ID as the
+   result instead; there is no job-status tool. Always confirm the outcome by
+   re-reading the resource (`get_vm` → `status.state`, `get_app` → `state`).
+   If a job tool times out, the job is still running on TrueNAS: do not retry
+   it. Wait, re-read the resource, and tell the user what you found.
 
 ---
 

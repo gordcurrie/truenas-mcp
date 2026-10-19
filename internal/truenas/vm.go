@@ -104,35 +104,35 @@ func (c *Client) GetVM(ctx context.Context, id int) (*VM, error) {
 	return &vm, nil
 }
 
-// StartVM starts the VM with the given ID and returns the async job ID.
-// The job can be polled for completion using PollJob.
-func (c *Client) StartVM(ctx context.Context, id int) (int, error) {
-	var jobID int
-	if err := c.call(ctx, "vm.start", []any{id}, &jobID); err != nil {
-		return 0, fmt.Errorf("starting VM %d: %w", id, err)
+// StartVM starts the VM with the given ID and returns the job result.
+// See callJob for the shape of the result.
+func (c *Client) StartVM(ctx context.Context, id int) (json.RawMessage, error) {
+	res, err := c.callJob(ctx, "vm.start", []any{id})
+	if err != nil {
+		return nil, fmt.Errorf("starting VM %d: %w", id, err)
 	}
-	return jobID, nil
+	return res, nil
 }
 
-// StopVM stops the VM with the given ID and returns the async job ID.
+// StopVM stops the VM with the given ID and returns the job result.
 // Set force to true to forcibly terminate without a graceful shutdown.
-// The job can be polled for completion using PollJob.
-func (c *Client) StopVM(ctx context.Context, id int, force bool) (int, error) {
-	var jobID int
-	if err := c.call(ctx, "vm.stop", []any{id, stopBody{Force: force}}, &jobID); err != nil {
-		return 0, fmt.Errorf("stopping VM %d: %w", id, err)
+// See callJob for the shape of the result.
+func (c *Client) StopVM(ctx context.Context, id int, force bool) (json.RawMessage, error) {
+	res, err := c.callJob(ctx, "vm.stop", []any{id, stopBody{Force: force}})
+	if err != nil {
+		return nil, fmt.Errorf("stopping VM %d: %w", id, err)
 	}
-	return jobID, nil
+	return res, nil
 }
 
-// RestartVM restarts the VM with the given ID and returns the async job ID.
-// The job can be polled for completion using PollJob.
-func (c *Client) RestartVM(ctx context.Context, id int) (int, error) {
-	var jobID int
-	if err := c.call(ctx, "vm.restart", []any{id}, &jobID); err != nil {
-		return 0, fmt.Errorf("restarting VM %d: %w", id, err)
+// RestartVM restarts the VM with the given ID and returns the job result.
+// See callJob for the shape of the result.
+func (c *Client) RestartVM(ctx context.Context, id int) (json.RawMessage, error) {
+	res, err := c.callJob(ctx, "vm.restart", []any{id})
+	if err != nil {
+		return nil, fmt.Errorf("restarting VM %d: %w", id, err)
 	}
-	return jobID, nil
+	return res, nil
 }
 
 // CreateVM creates a new virtual machine and returns it.

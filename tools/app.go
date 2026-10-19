@@ -2,6 +2,7 @@ package tools
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -53,17 +54,17 @@ func registerAppTools(s *mcp.Server, client truenasClient) {
 	}
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "start_app",
-		Description: "Start an app by name. Returns the async job ID immediately (non-blocking).",
+		Description: "Start an app by name. Waits for the TrueNAS job to finish and returns its result (older TrueNAS releases return the job ID instead).",
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: new(false)},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p startAppInput) (*mcp.CallToolResult, any, error) {
 		if p.Name == "" {
 			return errorResult(errors.New("start_app: name must not be empty"))
 		}
-		jobID, err := client.StartApp(ctx, p.Name)
+		res, err := client.StartApp(ctx, p.Name)
 		if err != nil {
 			return errorResult(fmt.Errorf("start_app: %w", err))
 		}
-		return jsonResult(map[string]int{"job_id": jobID})
+		return jsonResult(map[string]json.RawMessage{"result": res})
 	})
 
 	type stopAppInput struct {
@@ -71,17 +72,17 @@ func registerAppTools(s *mcp.Server, client truenasClient) {
 	}
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "stop_app",
-		Description: "Stop a running app by name. Returns the async job ID immediately (non-blocking).",
+		Description: "Stop a running app by name. Waits for the TrueNAS job to finish and returns its result (older TrueNAS releases return the job ID instead).",
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: new(true)},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p stopAppInput) (*mcp.CallToolResult, any, error) {
 		if p.Name == "" {
 			return errorResult(errors.New("stop_app: name must not be empty"))
 		}
-		jobID, err := client.StopApp(ctx, p.Name)
+		res, err := client.StopApp(ctx, p.Name)
 		if err != nil {
 			return errorResult(fmt.Errorf("stop_app: %w", err))
 		}
-		return jsonResult(map[string]int{"job_id": jobID})
+		return jsonResult(map[string]json.RawMessage{"result": res})
 	})
 
 	type restartAppInput struct {
@@ -89,17 +90,17 @@ func registerAppTools(s *mcp.Server, client truenasClient) {
 	}
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "restart_app",
-		Description: "Restart an app by name (redeploy). Returns the async job ID immediately (non-blocking).",
+		Description: "Restart an app by name (redeploy). Waits for the TrueNAS job to finish and returns its result (older TrueNAS releases return the job ID instead).",
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: new(true)},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p restartAppInput) (*mcp.CallToolResult, any, error) {
 		if p.Name == "" {
 			return errorResult(errors.New("restart_app: name must not be empty"))
 		}
-		jobID, err := client.RestartApp(ctx, p.Name)
+		res, err := client.RestartApp(ctx, p.Name)
 		if err != nil {
 			return errorResult(fmt.Errorf("restart_app: %w", err))
 		}
-		return jsonResult(map[string]int{"job_id": jobID})
+		return jsonResult(map[string]json.RawMessage{"result": res})
 	})
 
 	type listImagesInput struct{}
@@ -123,7 +124,7 @@ func registerAppTools(s *mcp.Server, client truenasClient) {
 	}
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "install_app",
-		Description: "Install a catalog app from the TrueNAS app catalog. Returns the async job ID immediately (non-blocking).",
+		Description: "Install a catalog app from the TrueNAS app catalog. Waits for the TrueNAS job to finish and returns its result (older TrueNAS releases return the job ID instead).",
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: new(false)},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p installAppInput) (*mcp.CallToolResult, any, error) {
 		if p.AppName == "" {
@@ -140,7 +141,7 @@ func registerAppTools(s *mcp.Server, client truenasClient) {
 		if version == "" {
 			version = "latest"
 		}
-		jobID, err := client.CreateApp(ctx, &truenas.CreateAppParams{
+		res, err := client.CreateApp(ctx, &truenas.CreateAppParams{
 			AppName:    p.AppName,
 			CatalogApp: p.CatalogApp,
 			Train:      train,
@@ -149,7 +150,7 @@ func registerAppTools(s *mcp.Server, client truenasClient) {
 		if err != nil {
 			return errorResult(fmt.Errorf("install_app: %w", err))
 		}
-		return jsonResult(map[string]int{"job_id": jobID})
+		return jsonResult(map[string]json.RawMessage{"result": res})
 	})
 
 	type installCustomAppInput struct {
@@ -158,7 +159,7 @@ func registerAppTools(s *mcp.Server, client truenasClient) {
 	}
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "install_custom_app",
-		Description: "Install a custom Docker Compose app on TrueNAS SCALE. Returns the async job ID immediately (non-blocking).",
+		Description: "Install a custom Docker Compose app on TrueNAS SCALE. Waits for the TrueNAS job to finish and returns its result (older TrueNAS releases return the job ID instead).",
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: new(false)},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p installCustomAppInput) (*mcp.CallToolResult, any, error) {
 		if p.AppName == "" {
@@ -167,7 +168,7 @@ func registerAppTools(s *mcp.Server, client truenasClient) {
 		if p.CustomComposeConfigString == "" {
 			return errorResult(errors.New("install_custom_app: custom_compose_config_string must not be empty"))
 		}
-		jobID, err := client.CreateApp(ctx, &truenas.CreateAppParams{
+		res, err := client.CreateApp(ctx, &truenas.CreateAppParams{
 			AppName:                   p.AppName,
 			CustomApp:                 true,
 			CustomComposeConfigString: p.CustomComposeConfigString,
@@ -175,7 +176,7 @@ func registerAppTools(s *mcp.Server, client truenasClient) {
 		if err != nil {
 			return errorResult(fmt.Errorf("install_custom_app: %w", err))
 		}
-		return jsonResult(map[string]int{"job_id": jobID})
+		return jsonResult(map[string]json.RawMessage{"result": res})
 	})
 
 	type upgradeAppInput struct {
@@ -184,17 +185,17 @@ func registerAppTools(s *mcp.Server, client truenasClient) {
 	}
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "upgrade_app",
-		Description: "Upgrade an installed app to the specified version, or to the latest available version if version is omitted. Returns the async job ID immediately (non-blocking).",
+		Description: "Upgrade an installed app to the specified version, or to the latest available version if version is omitted. Waits for the TrueNAS job to finish and returns its result (older TrueNAS releases return the job ID instead).",
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: new(true)},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p upgradeAppInput) (*mcp.CallToolResult, any, error) {
 		if p.Name == "" {
 			return errorResult(errors.New("upgrade_app: name must not be empty"))
 		}
-		jobID, err := client.UpgradeApp(ctx, p.Name, p.Version)
+		res, err := client.UpgradeApp(ctx, p.Name, p.Version)
 		if err != nil {
 			return errorResult(fmt.Errorf("upgrade_app: %w", err))
 		}
-		return jsonResult(map[string]int{"job_id": jobID})
+		return jsonResult(map[string]json.RawMessage{"result": res})
 	})
 
 	type upgradeSummaryInput struct {
@@ -221,7 +222,7 @@ func registerAppTools(s *mcp.Server, client truenasClient) {
 	}
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "rollback_app",
-		Description: "Roll an app back to a previous version. Returns the async job ID immediately (non-blocking).",
+		Description: "Roll an app back to a previous version. Waits for the TrueNAS job to finish and returns its result (older TrueNAS releases return the job ID instead).",
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: new(true)},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p rollbackAppInput) (*mcp.CallToolResult, any, error) {
 		if p.Name == "" {
@@ -230,10 +231,10 @@ func registerAppTools(s *mcp.Server, client truenasClient) {
 		if p.Version == "" {
 			return errorResult(errors.New("rollback_app: version must not be empty"))
 		}
-		jobID, err := client.RollbackApp(ctx, p.Name, p.Version)
+		res, err := client.RollbackApp(ctx, p.Name, p.Version)
 		if err != nil {
 			return errorResult(fmt.Errorf("rollback_app: %w", err))
 		}
-		return jsonResult(map[string]int{"job_id": jobID})
+		return jsonResult(map[string]json.RawMessage{"result": res})
 	})
 }
