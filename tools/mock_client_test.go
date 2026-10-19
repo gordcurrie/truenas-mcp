@@ -2,6 +2,7 @@ package tools
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/gordcurrie/truenas-mcp/internal/truenas"
 )
@@ -26,9 +27,9 @@ type mockTruenasClient struct {
 
 	listVMsFn        func(context.Context, ...truenas.ListOptions) ([]truenas.VM, error)
 	getVMFn          func(context.Context, int) (*truenas.VM, error)
-	startVMFn        func(context.Context, int) (int, error)
-	stopVMFn         func(context.Context, int, bool) (int, error)
-	restartVMFn      func(context.Context, int) (int, error)
+	startVMFn        func(context.Context, int) (json.RawMessage, error)
+	stopVMFn         func(context.Context, int, bool) (json.RawMessage, error)
+	restartVMFn      func(context.Context, int) (json.RawMessage, error)
 	createVMFn       func(context.Context, *truenas.CreateVMParams) (*truenas.VM, error)
 	updateVMFn       func(context.Context, int, *truenas.UpdateVMParams) (*truenas.VM, error)
 	deleteVMFn       func(context.Context, int) error
@@ -38,15 +39,15 @@ type mockTruenasClient struct {
 
 	listAppsFn          func(context.Context, ...truenas.ListOptions) ([]truenas.App, error)
 	getAppFn            func(context.Context, string) (*truenas.App, error)
-	startAppFn          func(context.Context, string) (int, error)
-	stopAppFn           func(context.Context, string) (int, error)
-	restartAppFn        func(context.Context, string) (int, error)
+	startAppFn          func(context.Context, string) (json.RawMessage, error)
+	stopAppFn           func(context.Context, string) (json.RawMessage, error)
+	restartAppFn        func(context.Context, string) (json.RawMessage, error)
 	listImagesFn        func(context.Context) ([]truenas.Image, error)
-	createAppFn         func(context.Context, *truenas.CreateAppParams) (int, error)
+	createAppFn         func(context.Context, *truenas.CreateAppParams) (json.RawMessage, error)
 	deleteAppFn         func(context.Context, string) error
-	upgradeAppFn        func(context.Context, string, string) (int, error)
+	upgradeAppFn        func(context.Context, string, string) (json.RawMessage, error)
 	getUpgradeSummaryFn func(context.Context, string) (*truenas.AppUpgradeSummary, error)
-	rollbackAppFn       func(context.Context, string, string) (int, error)
+	rollbackAppFn       func(context.Context, string, string) (json.RawMessage, error)
 
 	listInterfacesFn func(context.Context) ([]truenas.Interface, error)
 	listDirectoryFn  func(context.Context, string) ([]truenas.DirEntry, error)
@@ -143,25 +144,25 @@ func (m *mockTruenasClient) GetVM(ctx context.Context, id int) (*truenas.VM, err
 	return &truenas.VM{}, nil
 }
 
-func (m *mockTruenasClient) StartVM(ctx context.Context, id int) (int, error) {
+func (m *mockTruenasClient) StartVM(ctx context.Context, id int) (json.RawMessage, error) {
 	if m.startVMFn != nil {
 		return m.startVMFn(ctx, id)
 	}
-	return 0, nil
+	return nil, nil
 }
 
-func (m *mockTruenasClient) StopVM(ctx context.Context, id int, force bool) (int, error) {
+func (m *mockTruenasClient) StopVM(ctx context.Context, id int, force bool) (json.RawMessage, error) {
 	if m.stopVMFn != nil {
 		return m.stopVMFn(ctx, id, force)
 	}
-	return 0, nil
+	return nil, nil
 }
 
-func (m *mockTruenasClient) RestartVM(ctx context.Context, id int) (int, error) {
+func (m *mockTruenasClient) RestartVM(ctx context.Context, id int) (json.RawMessage, error) {
 	if m.restartVMFn != nil {
 		return m.restartVMFn(ctx, id)
 	}
-	return 0, nil
+	return nil, nil
 }
 
 func (m *mockTruenasClient) CreateVM(ctx context.Context, params *truenas.CreateVMParams) (*truenas.VM, error) {
@@ -220,25 +221,25 @@ func (m *mockTruenasClient) GetApp(ctx context.Context, name string) (*truenas.A
 	return &truenas.App{}, nil
 }
 
-func (m *mockTruenasClient) StartApp(ctx context.Context, name string) (int, error) {
+func (m *mockTruenasClient) StartApp(ctx context.Context, name string) (json.RawMessage, error) {
 	if m.startAppFn != nil {
 		return m.startAppFn(ctx, name)
 	}
-	return 0, nil
+	return nil, nil
 }
 
-func (m *mockTruenasClient) StopApp(ctx context.Context, name string) (int, error) {
+func (m *mockTruenasClient) StopApp(ctx context.Context, name string) (json.RawMessage, error) {
 	if m.stopAppFn != nil {
 		return m.stopAppFn(ctx, name)
 	}
-	return 0, nil
+	return nil, nil
 }
 
-func (m *mockTruenasClient) RestartApp(ctx context.Context, name string) (int, error) {
+func (m *mockTruenasClient) RestartApp(ctx context.Context, name string) (json.RawMessage, error) {
 	if m.restartAppFn != nil {
 		return m.restartAppFn(ctx, name)
 	}
-	return 0, nil
+	return nil, nil
 }
 
 func (m *mockTruenasClient) ListImages(ctx context.Context) ([]truenas.Image, error) {
@@ -248,11 +249,11 @@ func (m *mockTruenasClient) ListImages(ctx context.Context) ([]truenas.Image, er
 	return nil, nil
 }
 
-func (m *mockTruenasClient) CreateApp(ctx context.Context, params *truenas.CreateAppParams) (int, error) {
+func (m *mockTruenasClient) CreateApp(ctx context.Context, params *truenas.CreateAppParams) (json.RawMessage, error) {
 	if m.createAppFn != nil {
 		return m.createAppFn(ctx, params)
 	}
-	return 0, nil
+	return nil, nil
 }
 
 func (m *mockTruenasClient) DeleteApp(ctx context.Context, name string) error {
@@ -262,11 +263,11 @@ func (m *mockTruenasClient) DeleteApp(ctx context.Context, name string) error {
 	return nil
 }
 
-func (m *mockTruenasClient) UpgradeApp(ctx context.Context, name, version string) (int, error) {
+func (m *mockTruenasClient) UpgradeApp(ctx context.Context, name, version string) (json.RawMessage, error) {
 	if m.upgradeAppFn != nil {
 		return m.upgradeAppFn(ctx, name, version)
 	}
-	return 0, nil
+	return nil, nil
 }
 
 func (m *mockTruenasClient) GetUpgradeSummary(ctx context.Context, name string) (*truenas.AppUpgradeSummary, error) {
@@ -276,11 +277,11 @@ func (m *mockTruenasClient) GetUpgradeSummary(ctx context.Context, name string) 
 	return &truenas.AppUpgradeSummary{}, nil
 }
 
-func (m *mockTruenasClient) RollbackApp(ctx context.Context, name, version string) (int, error) {
+func (m *mockTruenasClient) RollbackApp(ctx context.Context, name, version string) (json.RawMessage, error) {
 	if m.rollbackAppFn != nil {
 		return m.rollbackAppFn(ctx, name, version)
 	}
-	return 0, nil
+	return nil, nil
 }
 
 func (m *mockTruenasClient) ListInterfaces(ctx context.Context) ([]truenas.Interface, error) {

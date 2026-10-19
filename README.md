@@ -38,9 +38,9 @@ An MCP server that exposes [TrueNAS SCALE](https://www.truenas.com/truenas-scale
 |---|---|---|
 | `list_vms` | List all VMs and their state (RUNNING/STOPPED), CPU, and memory | `limit`, `offset` (int, optional — server-side pagination) |
 | `get_vm` | Get detailed information about a specific VM | `id` (int) |
-| `start_vm` | Start a VM; returns async job ID immediately | `id` (int) |
-| `stop_vm` | Stop a VM; set `force=true` to forcibly terminate | `id` (int); `force` (bool, optional) |
-| `restart_vm` | Restart a VM; returns async job ID immediately | `id` (int) |
+| `start_vm` | Start a VM; waits for the job and returns its result | `id` (int) |
+| `stop_vm` | Stop a VM; set `force=true` to forcibly terminate; waits for the job and returns its result | `id` (int); `force` (bool, optional) |
+| `restart_vm` | Restart a VM; waits for the job and returns its result | `id` (int) |
 | `create_vm` | Create a new VM; returns the created VM | `name`, `memory` (required); `vcpus`, `bootloader`, `autostart`, `cores`, `threads`, `cpu_mode`, `cpu_model`, `shutdown_timeout`, `description` (optional) |
 | `update_vm` | Update an existing VM configuration; omitted fields are unchanged | `id` (required); any subset of `name`, `memory`, `vcpus`, `bootloader`, `cores`, `threads`, `cpu_mode`, `cpu_model`, `shutdown_timeout`, `description` |
 | `list_vm_devices` | List all hardware devices attached to a VM (disks, CDROMs, NICs, displays) | `id` (int) |
@@ -52,15 +52,17 @@ An MCP server that exposes [TrueNAS SCALE](https://www.truenas.com/truenas-scale
 |---|---|---|
 | `list_apps` | List all apps managed by TrueNAS SCALE | `limit`, `offset` (int, optional — server-side pagination) |
 | `get_app` | Get detailed information about a specific app by its app name | `name` (string) |
-| `start_app` | Start an app; returns async job ID immediately | `name` (string) |
-| `stop_app` | Stop a running app; returns async job ID immediately | `name` (string) |
-| `restart_app` | Restart an app; returns async job ID immediately | `name` (string) |
+| `start_app` | Start an app; waits for the job and returns its result | `name` (string) |
+| `stop_app` | Stop a running app; waits for the job and returns its result | `name` (string) |
+| `restart_app` | Restart an app; waits for the job and returns its result | `name` (string) |
 | `list_images` | List all Docker images stored on the TrueNAS SCALE system | _(none)_ |
-| `install_app` | Install a catalog app from the TrueNAS app catalog; returns async job ID | `app_name` (string); `catalog_app` (string); `train` (string, default: stable); `version` (string, default: latest) |
-| `install_custom_app` | Install a custom Docker Compose app; returns async job ID | `app_name` (string); `custom_compose_config_string` (string, YAML) |
-| `upgrade_app` | Upgrade an app to a newer version; returns async job ID immediately | `name` (string); `version` (string, optional — omit for latest) |
+| `install_app` | Install a catalog app from the TrueNAS app catalog; waits for the job and returns its result | `app_name` (string); `catalog_app` (string); `train` (string, default: stable); `version` (string, default: latest) |
+| `install_custom_app` | Install a custom Docker Compose app; waits for the job and returns its result | `app_name` (string); `custom_compose_config_string` (string, YAML) |
+| `upgrade_app` | Upgrade an app to a newer version; waits for the job and returns its result | `name` (string); `version` (string, optional — omit for latest) |
 | `upgrade_summary` | Get upgrade availability and changelog for an app | `name` (string) |
-| `rollback_app` | Roll an app back to a previous version; returns async job ID immediately | `name` (string); `version` (string, required) |
+| `rollback_app` | Roll an app back to a previous version; waits for the job and returns its result | `name` (string); `version` (string, required) |
+
+Job tools (`start_vm`, `stop_vm`, `restart_vm` and the app lifecycle, install, upgrade and rollback tools) wait up to 10 minutes for the TrueNAS job to finish and return `{"result": ...}`. Older TrueNAS releases return the job ID as the result instead. If the wait times out, the job keeps running on TrueNAS; check `get_vm` or `get_app` before retrying.
 
 ### ZFS Snapshots
 
@@ -244,68 +246,25 @@ Add the server to `opencode.json` in your project root (or `~/.config/opencode/o
 }
 ```
 
-## Worked Example — Proxmox Backup Server on TrueNAS
+## Agent skills
 
-This example shows how an AI agent can use `truenas-mcp` (plus the companion
-[proxmox-mcp](https://github.com/gordcurrie/proxmox-mcp)) to fully automate setting up
-[Proxmox Backup Server](https://www.proxmox.com/en/proxmox-backup-server) on TrueNAS, then
-register it with a Proxmox VE cluster and schedule nightly backups.
+The [`skills/`](skills/) directory contains [Agent Skills](https://agentskills.io) (`SKILL.md` format) that teach an agent how to use these tools well:
 
-### Step 1 — Create a ZFS dataset for backup storage (truenas-mcp)
+| Skill | Use it for |
+|---|---|
+| [`truenas`](skills/truenas/SKILL.md) | Everyday tasks: pool and dataset usage, snapshots, app installs and upgrades, VM lifecycle and devices — with safe confirmation rules |
+| [`audit-truenas`](skills/audit-truenas/SKILL.md) | A read-only health review (pools, capacity, snapshot coverage, app upgrade backlog, VMs) that produces a prioritised findings report |
+| [`pbs-on-truenas`](skills/pbs-on-truenas/SKILL.md) | Set up Proxmox Backup Server in a TrueNAS VM and register it with Proxmox VE, together with [proxmox-mcp](https://github.com/gordcurrie/proxmox-mcp) |
 
-```
-create_dataset
-  name: "tank/proxmox-backups"
-  comments: "Proxmox Backup Server datastore"
-```
+Install them for all your projects in Claude Code:
 
-### Step 2 — Create a VM to run PBS (truenas-mcp)
-
-```
-create_vm
-  name: "pbs"
-  memory: 4096
-  vcpus: 2
-  bootloader: "UEFI"
-  autostart: true
-  description: "Proxmox Backup Server"
+```bash
+git clone https://github.com/gordcurrie/truenas-mcp
+mkdir -p ~/.claude/skills
+cp -R truenas-mcp/skills/* ~/.claude/skills/
 ```
 
-### Step 3 — Start the VM (truenas-mcp)
-
-```
-start_vm
-  id: <vm_id returned by create_vm>
-```
-
-### Step 4 — Install PBS inside the VM _(manual)_
-
-Attach a Debian 12 ISO, install the OS, then follow the
-[PBS installation guide](https://pbs.proxmox.com/docs/installation.html) to install and
-configure PBS. Add the `tank/proxmox-backups` dataset as a PBS datastore via NFS or
-direct mount.
-
-### Step 5 — Register PBS with Proxmox VE _(proxmox-mcp — future tool)_
-
-```
-add_storage          # not yet implemented in proxmox-mcp
-  type: "pbs"
-  server: "<PBS VM IP>"
-  datastore: "proxmox-backups"
-```
-
-### Step 6 — Schedule nightly backups _(proxmox-mcp — future tool)_
-
-```
-create_backup_job    # not yet implemented in proxmox-mcp
-  storage: "pbs"
-  schedule: "daily"
-  all_vms: true
-```
-
-Steps 1–4 are fully automated today. Steps 5–6 require future proxmox-mcp tools.
-
----
+Other agents that support Agent Skills (GitHub Copilot, Cursor, Codex CLI, Gemini CLI, …) read the same folders; copy them to that agent's skills directory. Inside this repo they are already available to Claude Code and Copilot via `.claude/skills` and `.github/skills`, which link to `skills/`.
 
 ## Development
 

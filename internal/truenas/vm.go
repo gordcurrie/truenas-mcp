@@ -2,6 +2,7 @@ package truenas
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"maps"
 	"regexp"
@@ -103,35 +104,35 @@ func (c *Client) GetVM(ctx context.Context, id int) (*VM, error) {
 	return &vm, nil
 }
 
-// StartVM starts the VM with the given ID and returns the async job ID.
-// The job can be polled for completion using PollJob.
-func (c *Client) StartVM(ctx context.Context, id int) (int, error) {
-	var jobID int
-	if err := c.call(ctx, "vm.start", []any{id}, &jobID); err != nil {
-		return 0, fmt.Errorf("starting VM %d: %w", id, err)
+// StartVM starts the VM with the given ID and returns the job result.
+// See callJob for the shape of the result.
+func (c *Client) StartVM(ctx context.Context, id int) (json.RawMessage, error) {
+	res, err := c.callJob(ctx, "vm.start", []any{id})
+	if err != nil {
+		return nil, fmt.Errorf("starting VM %d: %w", id, err)
 	}
-	return jobID, nil
+	return res, nil
 }
 
-// StopVM stops the VM with the given ID and returns the async job ID.
+// StopVM stops the VM with the given ID and returns the job result.
 // Set force to true to forcibly terminate without a graceful shutdown.
-// The job can be polled for completion using PollJob.
-func (c *Client) StopVM(ctx context.Context, id int, force bool) (int, error) {
-	var jobID int
-	if err := c.call(ctx, "vm.stop", []any{id, stopBody{Force: force}}, &jobID); err != nil {
-		return 0, fmt.Errorf("stopping VM %d: %w", id, err)
+// See callJob for the shape of the result.
+func (c *Client) StopVM(ctx context.Context, id int, force bool) (json.RawMessage, error) {
+	res, err := c.callJob(ctx, "vm.stop", []any{id, stopBody{Force: force}})
+	if err != nil {
+		return nil, fmt.Errorf("stopping VM %d: %w", id, err)
 	}
-	return jobID, nil
+	return res, nil
 }
 
-// RestartVM restarts the VM with the given ID and returns the async job ID.
-// The job can be polled for completion using PollJob.
-func (c *Client) RestartVM(ctx context.Context, id int) (int, error) {
-	var jobID int
-	if err := c.call(ctx, "vm.restart", []any{id}, &jobID); err != nil {
-		return 0, fmt.Errorf("restarting VM %d: %w", id, err)
+// RestartVM restarts the VM with the given ID and returns the job result.
+// See callJob for the shape of the result.
+func (c *Client) RestartVM(ctx context.Context, id int) (json.RawMessage, error) {
+	res, err := c.callJob(ctx, "vm.restart", []any{id})
+	if err != nil {
+		return nil, fmt.Errorf("restarting VM %d: %w", id, err)
 	}
-	return jobID, nil
+	return res, nil
 }
 
 // CreateVM creates a new virtual machine and returns it.
@@ -209,7 +210,7 @@ const (
 //
 // Attributes are device-type-specific:
 //
-//	DISK:    {"path": "zvol/pool/dataset", "type": "VIRTIO"}
+//	DISK:    {"path": "/dev/zvol/pool/zvol", "type": "VIRTIO"}
 //	CDROM:   {"path": "/mnt/Storage/isos/debian.iso"}
 //	NIC:     {"type": "VIRTIO", "nic_attach": "br0"}
 //	DISPLAY: {"web": true, "port": 5900, "web_port": 5901}
@@ -221,12 +222,30 @@ type VMDevice struct {
 	Order      *int           `json:"order"`
 }
 
+// UnmarshalJSON decodes a VMDevice and fills DType from attributes.dtype when
+// the top-level dtype field is absent. Current TrueNAS SCALE releases report
+// the device type only inside attributes.
+func (d *VMDevice) UnmarshalJSON(data []byte) error {
+	type vmDeviceAlias VMDevice
+	var a vmDeviceAlias
+	if err := json.Unmarshal(data, &a); err != nil {
+		return fmt.Errorf("decoding VM device: %w", err)
+	}
+	if a.DType == "" {
+		if dt, ok := a.Attributes["dtype"].(string); ok {
+			a.DType = VMDeviceType(dt)
+		}
+	}
+	*d = VMDevice(a)
+	return nil
+}
+
 // AddVMDeviceParams holds the parameters for attaching a new device to a VM.
 // VMID, DType, and Attributes are required.
 //
 // Attributes by device type:
 //
-//	DISK:    {"path": "zvol/pool/dataset", "type": "VIRTIO"}
+//	DISK:    {"path": "/dev/zvol/pool/zvol", "type": "VIRTIO"}
 //	CDROM:   {"path": "/mnt/Storage/isos/pbs.iso"}
 //	NIC:     {"type": "VIRTIO", "nic_attach": "br0"}
 //	DISPLAY: {"web": true, "port": 5900}

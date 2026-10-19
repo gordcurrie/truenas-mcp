@@ -2,6 +2,7 @@ package tools
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"testing"
 
@@ -73,10 +74,10 @@ func TestGetApp(t *testing.T) {
 }
 
 func TestStartApp(t *testing.T) {
-	t.Run("returns job ID as JSON", func(t *testing.T) {
+	t.Run("returns job result as JSON", func(t *testing.T) {
 		mock := &mockTruenasClient{
-			startAppFn: func(_ context.Context, _ string) (int, error) {
-				return 10, nil
+			startAppFn: func(_ context.Context, _ string) (json.RawMessage, error) {
+				return json.RawMessage("10"), nil
 			},
 		}
 		cs, cleanup := connectTestServer(t, mock)
@@ -96,10 +97,10 @@ func TestStartApp(t *testing.T) {
 }
 
 func TestStopApp(t *testing.T) {
-	t.Run("returns job ID as JSON", func(t *testing.T) {
+	t.Run("returns job result as JSON", func(t *testing.T) {
 		mock := &mockTruenasClient{
-			stopAppFn: func(_ context.Context, _ string) (int, error) {
-				return 11, nil
+			stopAppFn: func(_ context.Context, _ string) (json.RawMessage, error) {
+				return json.RawMessage("11"), nil
 			},
 		}
 		cs, cleanup := connectTestServer(t, mock)
@@ -119,10 +120,10 @@ func TestStopApp(t *testing.T) {
 }
 
 func TestRestartApp(t *testing.T) {
-	t.Run("returns job ID as JSON", func(t *testing.T) {
+	t.Run("returns job result as JSON", func(t *testing.T) {
 		mock := &mockTruenasClient{
-			restartAppFn: func(_ context.Context, _ string) (int, error) {
-				return 12, nil
+			restartAppFn: func(_ context.Context, _ string) (json.RawMessage, error) {
+				return json.RawMessage("12"), nil
 			},
 		}
 		cs, cleanup := connectTestServer(t, mock)
@@ -170,10 +171,10 @@ func TestListImages(t *testing.T) {
 }
 
 func TestInstallApp(t *testing.T) {
-	t.Run("returns job ID as JSON", func(t *testing.T) {
+	t.Run("returns job result as JSON", func(t *testing.T) {
 		mock := &mockTruenasClient{
-			createAppFn: func(_ context.Context, _ *truenas.CreateAppParams) (int, error) {
-				return 20, nil
+			createAppFn: func(_ context.Context, _ *truenas.CreateAppParams) (json.RawMessage, error) {
+				return json.RawMessage("20"), nil
 			},
 		}
 		cs, cleanup := connectTestServer(t, mock)
@@ -204,10 +205,10 @@ func TestInstallApp(t *testing.T) {
 }
 
 func TestInstallCustomApp(t *testing.T) {
-	t.Run("returns job ID as JSON", func(t *testing.T) {
+	t.Run("returns job result as JSON", func(t *testing.T) {
 		mock := &mockTruenasClient{
-			createAppFn: func(_ context.Context, _ *truenas.CreateAppParams) (int, error) {
-				return 21, nil
+			createAppFn: func(_ context.Context, _ *truenas.CreateAppParams) (json.RawMessage, error) {
+				return json.RawMessage("21"), nil
 			},
 		}
 		cs, cleanup := connectTestServer(t, mock)
@@ -233,10 +234,10 @@ func TestInstallCustomApp(t *testing.T) {
 }
 
 func TestUpgradeApp(t *testing.T) {
-	t.Run("returns job ID as JSON", func(t *testing.T) {
+	t.Run("returns job result as JSON", func(t *testing.T) {
 		mock := &mockTruenasClient{
-			upgradeAppFn: func(_ context.Context, _, _ string) (int, error) {
-				return 30, nil
+			upgradeAppFn: func(_ context.Context, _, _ string) (json.RawMessage, error) {
+				return json.RawMessage("30"), nil
 			},
 		}
 		cs, cleanup := connectTestServer(t, mock)
@@ -279,10 +280,10 @@ func TestUpgradeSummary(t *testing.T) {
 }
 
 func TestRollbackApp(t *testing.T) {
-	t.Run("returns job ID as JSON", func(t *testing.T) {
+	t.Run("returns job result as JSON", func(t *testing.T) {
 		mock := &mockTruenasClient{
-			rollbackAppFn: func(_ context.Context, _, _ string) (int, error) {
-				return 31, nil
+			rollbackAppFn: func(_ context.Context, _, _ string) (json.RawMessage, error) {
+				return json.RawMessage("31"), nil
 			},
 		}
 		cs, cleanup := connectTestServer(t, mock)

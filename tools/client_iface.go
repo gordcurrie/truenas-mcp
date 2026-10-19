@@ -2,6 +2,7 @@ package tools
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/gordcurrie/truenas-mcp/internal/truenas"
 )
@@ -31,9 +32,9 @@ type truenasClient interface {
 	// Virtual Machines
 	ListVMs(ctx context.Context, opts ...truenas.ListOptions) ([]truenas.VM, error)
 	GetVM(ctx context.Context, id int) (*truenas.VM, error)
-	StartVM(ctx context.Context, id int) (int, error)
-	StopVM(ctx context.Context, id int, force bool) (int, error)
-	RestartVM(ctx context.Context, id int) (int, error)
+	StartVM(ctx context.Context, id int) (json.RawMessage, error)
+	StopVM(ctx context.Context, id int, force bool) (json.RawMessage, error)
+	RestartVM(ctx context.Context, id int) (json.RawMessage, error)
 	CreateVM(ctx context.Context, params *truenas.CreateVMParams) (*truenas.VM, error)
 	UpdateVM(ctx context.Context, id int, params *truenas.UpdateVMParams) (*truenas.VM, error)
 	DeleteVM(ctx context.Context, id int) error
@@ -44,15 +45,15 @@ type truenasClient interface {
 	// Apps
 	ListApps(ctx context.Context, opts ...truenas.ListOptions) ([]truenas.App, error)
 	GetApp(ctx context.Context, name string) (*truenas.App, error)
-	StartApp(ctx context.Context, name string) (int, error)
-	StopApp(ctx context.Context, name string) (int, error)
-	RestartApp(ctx context.Context, name string) (int, error)
+	StartApp(ctx context.Context, name string) (json.RawMessage, error)
+	StopApp(ctx context.Context, name string) (json.RawMessage, error)
+	RestartApp(ctx context.Context, name string) (json.RawMessage, error)
 	ListImages(ctx context.Context) ([]truenas.Image, error)
-	CreateApp(ctx context.Context, params *truenas.CreateAppParams) (int, error)
+	CreateApp(ctx context.Context, params *truenas.CreateAppParams) (json.RawMessage, error)
 	DeleteApp(ctx context.Context, name string) error
-	UpgradeApp(ctx context.Context, name, version string) (int, error)
+	UpgradeApp(ctx context.Context, name, version string) (json.RawMessage, error)
 	GetUpgradeSummary(ctx context.Context, name string) (*truenas.AppUpgradeSummary, error)
-	RollbackApp(ctx context.Context, name, version string) (int, error)
+	RollbackApp(ctx context.Context, name, version string) (json.RawMessage, error)
 
 	// Network
 	ListInterfaces(ctx context.Context) ([]truenas.Interface, error)

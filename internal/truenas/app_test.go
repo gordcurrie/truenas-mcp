@@ -89,12 +89,12 @@ func TestStartApp_success(t *testing.T) {
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
-	jobID, err := c.StartApp(context.Background(), "nginx")
+	res, err := c.StartApp(context.Background(), "nginx")
 	if err != nil {
 		t.Fatalf("StartApp: %v", err)
 	}
-	if jobID != 10 {
-		t.Errorf("jobID = %d, want 10", jobID)
+	if string(res) != "10" {
+		t.Errorf("result = %s, want 10", res)
 	}
 }
 
@@ -113,12 +113,12 @@ func TestStopApp_success(t *testing.T) {
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
-	jobID, err := c.StopApp(context.Background(), "nginx")
+	res, err := c.StopApp(context.Background(), "nginx")
 	if err != nil {
 		t.Fatalf("StopApp: %v", err)
 	}
-	if jobID != 11 {
-		t.Errorf("jobID = %d, want 11", jobID)
+	if string(res) != "11" {
+		t.Errorf("result = %s, want 11", res)
 	}
 }
 
@@ -137,12 +137,12 @@ func TestRestartApp_success(t *testing.T) {
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
-	jobID, err := c.RestartApp(context.Background(), "nginx")
+	res, err := c.RestartApp(context.Background(), "nginx")
 	if err != nil {
 		t.Fatalf("RestartApp: %v", err)
 	}
-	if jobID != 12 {
-		t.Errorf("jobID = %d, want 12", jobID)
+	if string(res) != "12" {
+		t.Errorf("result = %s, want 12", res)
 	}
 }
 
@@ -185,7 +185,7 @@ func TestCreateApp_catalogSuccess(t *testing.T) {
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
-	jobID, err := c.CreateApp(context.Background(), &CreateAppParams{
+	res, err := c.CreateApp(context.Background(), &CreateAppParams{
 		AppName:    "my-jellyfin",
 		CatalogApp: "jellyfin",
 		Train:      "stable",
@@ -194,8 +194,8 @@ func TestCreateApp_catalogSuccess(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateApp: %v", err)
 	}
-	if jobID != 42 {
-		t.Errorf("jobID = %d, want 42", jobID)
+	if string(res) != "42" {
+		t.Errorf("result = %s, want 42", res)
 	}
 }
 
@@ -210,7 +210,7 @@ func TestCreateApp_customSuccess(t *testing.T) {
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
-	jobID, err := c.CreateApp(context.Background(), &CreateAppParams{
+	res, err := c.CreateApp(context.Background(), &CreateAppParams{
 		AppName:                   "my-custom-app",
 		CustomApp:                 true,
 		CustomComposeConfigString: "services:\n  web:\n    image: nginx\n",
@@ -218,8 +218,8 @@ func TestCreateApp_customSuccess(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateApp: %v", err)
 	}
-	if jobID != 7 {
-		t.Errorf("jobID = %d, want 7", jobID)
+	if string(res) != "7" {
+		t.Errorf("result = %s, want 7", res)
 	}
 }
 
@@ -326,12 +326,34 @@ func TestUpgradeApp_success(t *testing.T) {
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
-	jobID, err := c.UpgradeApp(context.Background(), "my-app", "")
+	res, err := c.UpgradeApp(context.Background(), "my-app", "")
 	if err != nil {
 		t.Fatalf("UpgradeApp: %v", err)
 	}
-	if jobID != 20 {
-		t.Errorf("jobID = %d, want 20", jobID)
+	if string(res) != "20" {
+		t.Errorf("result = %s, want 20", res)
+	}
+}
+
+// Current TrueNAS releases block until the job finishes and return its
+// result instead of a job ID.
+func TestUpgradeApp_jobResult(t *testing.T) {
+	t.Parallel()
+
+	srv := wsTestServer(t, map[string]methodHandler{
+		"app.upgrade": func(_ json.RawMessage) (any, *rpcError) {
+			return map[string]any{"name": "my-app", "state": "RUNNING"}, nil
+		},
+	})
+	defer srv.Close()
+
+	c := newTestClient(t, srv.URL)
+	res, err := c.UpgradeApp(context.Background(), "my-app", "")
+	if err != nil {
+		t.Fatalf("UpgradeApp: %v", err)
+	}
+	if want := `{"name":"my-app","state":"RUNNING"}`; string(res) != want {
+		t.Errorf("result = %s, want %s", res, want)
 	}
 }
 
@@ -433,12 +455,12 @@ func TestRollbackApp_success(t *testing.T) {
 	defer srv.Close()
 
 	c := newTestClient(t, srv.URL)
-	jobID, err := c.RollbackApp(context.Background(), "my-app", "1.9.0")
+	res, err := c.RollbackApp(context.Background(), "my-app", "1.9.0")
 	if err != nil {
 		t.Fatalf("RollbackApp: %v", err)
 	}
-	if jobID != 21 {
-		t.Errorf("jobID = %d, want 21", jobID)
+	if string(res) != "21" {
+		t.Errorf("result = %s, want 21", res)
 	}
 }
 

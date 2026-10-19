@@ -19,7 +19,9 @@ import (
 const (
 	wsHandshakeTimeout = 10 * time.Second
 	defaultCallTimeout = 30 * time.Second // applied when ctx has no deadline
-	maxMessageBytes    = 10 * 1024 * 1024 // 10 MiB cap on inbound WebSocket messages
+	// JobCallTimeout is applied to job methods when ctx has no deadline.
+	JobCallTimeout  = 10 * time.Minute
+	maxMessageBytes = 10 * 1024 * 1024 // 10 MiB cap on inbound WebSocket messages
 )
 
 // rpcRequest is a JSON-RPC 2.0 request frame sent to TrueNAS.
@@ -425,4 +427,25 @@ func (c *Client) mapRPCError(method string, e *rpcError) error {
 		return ErrNotFound
 	}
 	return &APIError{StatusCode: e.Code, Body: fmt.Sprintf("%s: %s", method, body)}
+}
+
+// callJob calls a TrueNAS job method (app.upgrade, vm.start, ...) and returns
+// its raw result. Older releases return the job ID at once. Current releases
+// block until the job finishes and return the job's result, which can take
+// minutes, so callJob allows JobCallTimeout instead of defaultCallTimeout.
+// The job keeps running on TrueNAS if the call times out.
+func (c *Client) callJob(ctx context.Context, method string, params any) (json.RawMessage, error) {
+	if _, ok := ctx.Deadline(); !ok {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, JobCallTimeout)
+		defer cancel()
+	}
+	var res json.RawMessage
+	if err := c.call(ctx, method, params, &res); err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return nil, fmt.Errorf("%w (the job may still be running on TrueNAS; check its state before retrying)", err)
+		}
+		return nil, err
+	}
+	return res, nil
 }

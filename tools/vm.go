@@ -2,6 +2,7 @@ package tools
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -56,17 +57,17 @@ func registerVMTools(s *mcp.Server, client truenasClient) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "start_vm",
-		Description: "Start a virtual machine by its numeric ID. Returns the async job ID immediately (non-blocking).",
+		Description: "Start a virtual machine by its numeric ID. Waits for the TrueNAS job to finish and returns its result (older TrueNAS releases return the job ID instead).",
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: new(false)},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p startVMInput) (*mcp.CallToolResult, any, error) {
 		if p.ID <= 0 {
 			return errorResult(errors.New("start_vm: id must be a positive integer"))
 		}
-		jobID, err := client.StartVM(ctx, p.ID)
+		res, err := client.StartVM(ctx, p.ID)
 		if err != nil {
 			return errorResult(fmt.Errorf("start_vm: %w", err))
 		}
-		return jsonResult(map[string]int{"job_id": jobID})
+		return jsonResult(map[string]json.RawMessage{"result": res})
 	})
 
 	type stopVMInput struct {
@@ -76,17 +77,17 @@ func registerVMTools(s *mcp.Server, client truenasClient) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "stop_vm",
-		Description: "Stop a virtual machine by its numeric ID. Set force=true to forcibly terminate without a graceful shutdown. Returns the async job ID immediately (non-blocking).",
+		Description: "Stop a virtual machine by its numeric ID. Set force=true to forcibly terminate without a graceful shutdown. Waits for the TrueNAS job to finish and returns its result (older TrueNAS releases return the job ID instead).",
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: new(true)},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p stopVMInput) (*mcp.CallToolResult, any, error) {
 		if p.ID <= 0 {
 			return errorResult(errors.New("stop_vm: id must be a positive integer"))
 		}
-		jobID, err := client.StopVM(ctx, p.ID, p.Force)
+		res, err := client.StopVM(ctx, p.ID, p.Force)
 		if err != nil {
 			return errorResult(fmt.Errorf("stop_vm: %w", err))
 		}
-		return jsonResult(map[string]int{"job_id": jobID})
+		return jsonResult(map[string]json.RawMessage{"result": res})
 	})
 
 	type restartVMInput struct {
@@ -95,17 +96,17 @@ func registerVMTools(s *mcp.Server, client truenasClient) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "restart_vm",
-		Description: "Restart a virtual machine by its numeric ID. Returns the async job ID immediately (non-blocking).",
+		Description: "Restart a virtual machine by its numeric ID. Waits for the TrueNAS job to finish and returns its result (older TrueNAS releases return the job ID instead).",
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: new(true)},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, p restartVMInput) (*mcp.CallToolResult, any, error) {
 		if p.ID <= 0 {
 			return errorResult(errors.New("restart_vm: id must be a positive integer"))
 		}
-		jobID, err := client.RestartVM(ctx, p.ID)
+		res, err := client.RestartVM(ctx, p.ID)
 		if err != nil {
 			return errorResult(fmt.Errorf("restart_vm: %w", err))
 		}
-		return jsonResult(map[string]int{"job_id": jobID})
+		return jsonResult(map[string]json.RawMessage{"result": res})
 	})
 
 	type createVMInput struct {
@@ -213,7 +214,7 @@ func registerVMTools(s *mcp.Server, client truenasClient) {
 
 	type addVMDeviceInput struct {
 		VMID       int            `json:"vm_id"    jsonschema:"Numeric VM ID to attach the device to"`
-		DType      string         `json:"dtype"    jsonschema:"Device type: DISK | CDROM | NIC | DISPLAY | RAW. DISK attrs: {path:'zvol/pool/dataset' type:'VIRTIO'}. CDROM attrs: {path:'/mnt/Storage/isos/file.iso'}. NIC attrs: {type:'VIRTIO' nic_attach:'br0'}. DISPLAY attrs: {web:true port:5900}. RAW is an advanced passthrough type."`
+		DType      string         `json:"dtype"    jsonschema:"Device type: DISK | CDROM | NIC | DISPLAY | RAW. DISK attrs: {path:'/dev/zvol/pool/zvol' type:'VIRTIO'}. CDROM attrs: {path:'/mnt/Storage/isos/file.iso'}. NIC attrs: {type:'VIRTIO' nic_attach:'br0'}. DISPLAY attrs: {web:true port:5900}. RAW is an advanced passthrough type."`
 		Attributes map[string]any `json:"attributes" jsonschema:"Device-type-specific key-value pairs. See dtype description for examples."`
 		Order      *int           `json:"order,omitempty" jsonschema:"Optional boot/device order index"`
 	}

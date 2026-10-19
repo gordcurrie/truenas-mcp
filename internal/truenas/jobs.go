@@ -14,9 +14,9 @@ type JobProgress struct {
 	Description string  `json:"description"`
 }
 
-// Job represents an async job returned by TrueNAS SCALE long-running operations.
-// The job ID is returned immediately by lifecycle operations; use PollJob to wait
-// for completion.
+// Job represents an async job run by TrueNAS SCALE long-running operations.
+// Older TrueNAS releases return the job ID from lifecycle operations; use
+// PollJob to wait for completion.
 type Job struct {
 	ID       int         `json:"id"`
 	Method   string      `json:"method"`

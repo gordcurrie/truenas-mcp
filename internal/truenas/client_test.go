@@ -355,3 +355,28 @@ func TestClient_call_expiredDeadlineKeepsConnection(t *testing.T) {
 		t.Errorf("follow-up call on same connection: %v", err)
 	}
 }
+
+func TestClient_callJob_deadlineSaysJobMayBeRunning(t *testing.T) {
+	t.Parallel()
+
+	// Job that outlives the caller's deadline.
+	srv := wsTestServer(t, map[string]methodHandler{
+		"app.upgrade": func(json.RawMessage) (any, *rpcError) {
+			time.Sleep(200 * time.Millisecond)
+			return map[string]any{}, nil
+		},
+	})
+	defer srv.Close()
+
+	c := newTestClient(t, srv.URL)
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancel()
+
+	_, err := c.callJob(ctx, "app.upgrade", []any{"my-app"})
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("expected context.DeadlineExceeded in error chain, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "may still be running") {
+		t.Errorf("error %q does not say the job may still be running", err)
+	}
+}
