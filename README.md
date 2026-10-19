@@ -104,6 +104,17 @@ Download the latest release for your platform from the [Releases](https://github
 | macOS (arm64) | `truenas-mcp_darwin_arm64` |
 | Windows (amd64) | `truenas-mcp_windows_amd64.exe` |
 
+Each release also includes `checksums.txt` with SHA-256 hashes of every binary. Download it into the same directory and verify before running:
+
+```bash
+# Linux
+sha256sum --check --ignore-missing checksums.txt
+# macOS
+shasum -a 256 --check --ignore-missing checksums.txt
+```
+
+Windows users can compare the output of `Get-FileHash truenas-mcp_windows_amd64.exe` (PowerShell) against the matching line.
+
 Make it executable and place it on your `PATH` (substitute the filename for your platform):
 
 ```bash
@@ -113,9 +124,19 @@ mv <binary-name> /usr/local/bin/truenas-mcp
 
 > Windows users: rename the `.exe` and add it to a directory on your `%PATH%`.
 
+> macOS users: if Gatekeeper blocks the downloaded binary, clear the quarantine flag with `xattr -d com.apple.quarantine /usr/local/bin/truenas-mcp`.
+
+### Install with Go
+
+Requires Go 1.27.2+. Installs `truenas-mcp` into `$(go env GOPATH)/bin`:
+
+```bash
+go install github.com/gordcurrie/truenas-mcp/cmd/truenas-mcp@latest
+```
+
 ### Build from source
 
-Requires Go 1.27+. You will also need a TrueNAS SCALE instance and an API key — create one in the TrueNAS UI under **Credentials → API Keys**.
+Requires Go 1.27.2+. You will also need a TrueNAS SCALE instance and an API key — create one in the TrueNAS UI under **Credentials → API Keys**.
 
 ```bash
 git clone https://github.com/gordcurrie/truenas-mcp
@@ -149,6 +170,17 @@ TRUENAS_API_KEY=your-api-key \
 # HTTP transport (for remote or shared deployments)
 ./truenas-mcp --transport http --addr localhost:8081
 ```
+
+### Claude Code
+
+```bash
+claude mcp add truenas --scope user \
+  -e TRUENAS_API_URL=https://truenas.local \
+  -e TRUENAS_API_KEY=your-api-key \
+  -- /path/to/truenas-mcp
+```
+
+Run `/mcp` inside Claude Code to confirm the server is connected.
 
 ### VS Code Copilot
 
