@@ -128,9 +128,15 @@ mv <binary-name> /usr/local/bin/truenas-mcp
 
 > macOS users: if Gatekeeper blocks the downloaded binary, clear the quarantine flag with `xattr -d com.apple.quarantine /usr/local/bin/truenas-mcp`.
 
+Confirm the installed version:
+
+```bash
+truenas-mcp --version
+```
+
 ### Install with Go
 
-Requires Go 1.27.2+. Installs `truenas-mcp` into `$(go env GOPATH)/bin`:
+Requires Go 1.27.3+. Installs `truenas-mcp` into `$(go env GOPATH)/bin`:
 
 ```bash
 go install github.com/gordcurrie/truenas-mcp/cmd/truenas-mcp@latest
@@ -138,7 +144,7 @@ go install github.com/gordcurrie/truenas-mcp/cmd/truenas-mcp@latest
 
 ### Build from source
 
-Requires Go 1.27.2+. You will also need a TrueNAS SCALE instance and an API key — create one in the TrueNAS UI under **Credentials → API Keys**.
+Requires Go 1.27.3+. You will also need a TrueNAS SCALE instance and an API key — create one in the TrueNAS UI under **Credentials → API Keys**.
 
 ```bash
 git clone https://github.com/gordcurrie/truenas-mcp
