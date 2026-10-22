@@ -15,6 +15,7 @@
 //
 //	--transport   Transport to use: "stdio" (default) or "http"
 //	--addr        Listen address when --transport=http (default: localhost:8081)
+//	--version     Print the version and exit
 package main
 
 import (
@@ -51,7 +52,13 @@ func main() {
 func run() error {
 	transport := flag.String("transport", "stdio", "Transport: stdio or http")
 	addr := flag.String("addr", "localhost:8081", "Listen address (http transport only)")
+	showVersion := flag.Bool("version", false, "Print version and exit")
 	flag.Parse()
+
+	if *showVersion {
+		fmt.Println(version)
+		return nil
+	}
 
 	apiURL, err := requireEnv("TRUENAS_API_URL")
 	if err != nil {
