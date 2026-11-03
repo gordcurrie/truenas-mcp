@@ -380,3 +380,57 @@ func TestClient_callJob_deadlineSaysJobMayBeRunning(t *testing.T) {
 		t.Errorf("error %q does not say the job may still be running", err)
 	}
 }
+
+// TestClient_awaitResponse_prefersDeliveredResponse covers the window where
+// readLoop has already delivered a response to the caller's channel and then
+// closed done (server replied, then hung up) before the caller reached its
+// select. Both cases are ready, so without explicit preference select picks
+// one at random; each iteration below is an independent coin flip, making a
+// regression all but certain to fail.
+func TestClient_awaitResponse_prefersDeliveredResponse(t *testing.T) {
+	t.Parallel()
+
+	c, err := NewClient("http://127.0.0.1:1", "key", false) //nolint:gosec // G101: fake placeholder
+	if err != nil {
+		t.Fatalf("NewClient: %v", err)
+	}
+
+	done := make(chan struct{})
+	close(done)
+
+	t.Run("result", func(t *testing.T) {
+		t.Parallel()
+		for i := range 200 {
+			ch := make(chan rpcResponse, 1)
+			ch <- rpcResponse{Result: json.RawMessage(`false`)}
+			got := true
+			if err := c.awaitResponse(context.Background(), "auth.login_with_api_key", 1, ch, done, &got); err != nil {
+				t.Fatalf("iteration %d: awaitResponse: %v", i, err)
+			}
+			if got {
+				t.Fatalf("iteration %d: got result true, want false", i)
+			}
+		}
+	})
+
+	t.Run("rpc error", func(t *testing.T) {
+		t.Parallel()
+		for i := range 200 {
+			ch := make(chan rpcResponse, 1)
+			ch <- rpcResponse{Error: &rpcError{Code: -32601, Message: "method not found"}}
+			err := c.awaitResponse(context.Background(), "bogus.method", 1, ch, done, nil)
+			if !errors.Is(err, ErrMethodNotFound) {
+				t.Fatalf("iteration %d: error %v, want ErrMethodNotFound", i, err)
+			}
+		}
+	})
+
+	t.Run("no response", func(t *testing.T) {
+		t.Parallel()
+		ch := make(chan rpcResponse, 1)
+		err := c.awaitResponse(context.Background(), "system.version", 1, ch, done, nil)
+		if err == nil || !strings.Contains(err.Error(), "connection closed") {
+			t.Fatalf("error %v, want connection closed", err)
+		}
+	})
+}
