@@ -306,6 +306,9 @@ func (c *Client) callOnce(ctx context.Context, method string, params, out any) e
 		_ = c.conn.SetWriteDeadline(deadline)
 	}
 	c.pending[id] = ch
+	// Capture done under mu so the wait below watches the connection this
+	// request was sent on, even if reconnect() later swaps c.done.
+	done := c.done
 	err = c.conn.WriteMessage(websocket.TextMessage, data)
 	_ = c.conn.SetWriteDeadline(time.Time{}) // clear deadline regardless of outcome
 	c.mu.Unlock()
@@ -327,26 +330,46 @@ func (c *Client) callOnce(ctx context.Context, method string, params, out any) e
 		return fmt.Errorf("sending RPC request for %s: %w", method, err)
 	}
 
+	return c.awaitResponse(ctx, method, id, ch, done, out)
+}
+
+// awaitResponse waits for the response to request id on ch, the caller's
+// context, or done (closed when the connection's readLoop exits).
+func (c *Client) awaitResponse(ctx context.Context, method string, id int64, ch <-chan rpcResponse, done <-chan struct{}, out any) error {
 	select {
 	case <-ctx.Done():
 		c.mu.Lock()
 		delete(c.pending, id)
 		c.mu.Unlock()
 		return fmt.Errorf("RPC call %s: %w", method, ctx.Err())
-	case <-c.done:
+	case <-done:
+		// readLoop delivers a response to ch before closing done, but select
+		// picks randomly when both are ready. Prefer a response that already
+		// arrived so a server that replies and then hangs up is not misreported
+		// as a closed connection.
+		select {
+		case resp := <-ch:
+			return c.handleResponse(method, resp, out)
+		default:
+		}
 		return fmt.Errorf("RPC call %s: connection closed", method)
 	case resp := <-ch:
-		if resp.Error != nil {
-			return c.mapRPCError(method, resp.Error)
-		}
-		if out == nil {
-			return nil
-		}
-		if err := json.Unmarshal(resp.Result, out); err != nil {
-			return fmt.Errorf("decoding RPC result for %s: %w", method, err)
-		}
+		return c.handleResponse(method, resp, out)
+	}
+}
+
+// handleResponse maps an RPC error or decodes the result into out.
+func (c *Client) handleResponse(method string, resp rpcResponse, out any) error {
+	if resp.Error != nil {
+		return c.mapRPCError(method, resp.Error)
+	}
+	if out == nil {
 		return nil
 	}
+	if err := json.Unmarshal(resp.Result, out); err != nil {
+		return fmt.Errorf("decoding RPC result for %s: %w", method, err)
+	}
+	return nil
 }
 
 // readLoop reads WebSocket frames and routes responses to pending callers.
