@@ -334,19 +334,33 @@ func (c *Client) callOnce(ctx context.Context, method string, params, out any) e
 		c.mu.Unlock()
 		return fmt.Errorf("RPC call %s: %w", method, ctx.Err())
 	case <-c.done:
+		// readLoop delivers a response to ch before closing done, but select
+		// picks randomly when both are ready. Prefer a response that already
+		// arrived so a server that replies and then hangs up is not misreported
+		// as a closed connection.
+		select {
+		case resp := <-ch:
+			return c.handleResponse(method, resp, out)
+		default:
+		}
 		return fmt.Errorf("RPC call %s: connection closed", method)
 	case resp := <-ch:
-		if resp.Error != nil {
-			return c.mapRPCError(method, resp.Error)
-		}
-		if out == nil {
-			return nil
-		}
-		if err := json.Unmarshal(resp.Result, out); err != nil {
-			return fmt.Errorf("decoding RPC result for %s: %w", method, err)
-		}
+		return c.handleResponse(method, resp, out)
+	}
+}
+
+// handleResponse maps an RPC error or decodes the result into out.
+func (c *Client) handleResponse(method string, resp rpcResponse, out any) error {
+	if resp.Error != nil {
+		return c.mapRPCError(method, resp.Error)
+	}
+	if out == nil {
 		return nil
 	}
+	if err := json.Unmarshal(resp.Result, out); err != nil {
+		return fmt.Errorf("decoding RPC result for %s: %w", method, err)
+	}
+	return nil
 }
 
 // readLoop reads WebSocket frames and routes responses to pending callers.
